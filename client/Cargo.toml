@@ -1,0 +1,36 @@
+# GPUI client: a separate workspace so the upstream root `Cargo.toml` /
+# `Cargo.lock` stay untouched and `crates/` merges cleanly from upstream.
+# Upstream crates are used read-only through path dependencies.
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.0.1"
+edition = "2024"
+rust-version = "1.96"
+license = "Apache-2.0"
+publish = false
+
+[workspace.dependencies]
+# upstream (read-only)
+ide-core = { path = "../crates/ide-core" }
+ide-jsonrpc = { path = "../crates/ide-jsonrpc" }
+
+# internal
+client-rpc = { path = "crates/client-rpc" }
+
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "process", "io-util"] }
+parking_lot = "0.12"
+anyhow = "1"
+thiserror = "2"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+tempfile = "3"
+
+[profile.dev]
+opt-level = 0
+[profile.dev.package."*"]
+opt-level = 2

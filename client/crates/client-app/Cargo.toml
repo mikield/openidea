@@ -1,0 +1,26 @@
+[package]
+name = "client-app"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "openidea-gpui"
+path = "src/main.rs"
+
+[dependencies]
+serde_json = "1"
+client-rpc.workspace = true
+ide-core.workspace = true
+tokio.workspace = true
+anyhow.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+# GPUI as gpui-component pins it (a published snapshot of Zed's gpui).
+gpui = { package = "gpui-pre", version = "=0.3.10" }
+gpui_platform = { package = "gpui-pre-platform", version = "=0.3.10", features = ["font-kit", "x11", "wayland", "runtime_shaders"] }
+gpui-component = { version = "=0.8.1", features = ["syntect"] }
+gpui-kit-assets = "=0.8.1"
+lsp-types = { version = "0.97", features = ["proposed"] }
