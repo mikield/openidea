@@ -1,6 +1,6 @@
 //! Typed client of the `openidea-server` protocol (see `ide_host::rpc`).
 //!
-//! The client is remote-first: even a local session spawns `openidea-server
+//! The client is remote-first: even a local session spawns `oi-server
 //! --stdio` and talks JSON-RPC to it, so local and SSH sessions share one path.
 //! How the bytes travel is a [`Transport`]; everything above it is shared.
 //!

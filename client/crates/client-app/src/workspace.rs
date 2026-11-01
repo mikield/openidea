@@ -75,7 +75,7 @@ impl Workspace {
             rt,
             root: root.clone(),
             project: project.name.into(),
-            server: format!("openidea-server {} ({}/{})", server.version, server.os, server.arch).into(),
+            server: format!("oi-server {} ({}/{})", server.version, server.os, server.arch).into(),
             children: HashMap::new(),
             expanded: HashSet::from([root.clone()]),
             rows: Vec::new(),

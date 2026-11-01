@@ -1,8 +1,8 @@
 //! `openidea-gpui [PROJECT_DIR] [--open RELATIVE_FILE]`
 //!
-//! Phase-0 spike: a GPUI client of the unmodified `openidea-server`. Even
-//! locally the client spawns the server and speaks the remote protocol, so the
-//! same code path serves SSH sessions later.
+//! Phase-0 spike: a GPUI client of `oi-server` (upstream's backend plus our
+//! commands). Even locally the client spawns the server and speaks the remote
+//! protocol, so the same code path serves SSH sessions later.
 
 mod completion;
 mod doc_sync;

@@ -1,0 +1,31 @@
+[package]
+name = "oi-server"
+description = "Our backend binary: upstream's standard command set plus the commands the GPUI client adds"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "oi-server"
+path = "src/main.rs"
+
+[dependencies]
+ide-core.workspace = true
+ide-host.workspace = true
+ide-language.workspace = true
+ide-tools.workspace = true
+ide-dap.workspace = true
+ide-sdk.workspace = true
+serde.workspace = true
+tokio = { workspace = true, features = ["io-std"] }
+tracing.workspace = true
+tracing-subscriber.workspace = true
+dirs.workspace = true
+
+[dev-dependencies]
+client-rpc.workspace = true
+serde_json.workspace = true
+tempfile.workspace = true
+tokio.workspace = true

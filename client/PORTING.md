@@ -65,8 +65,12 @@ is GPL: never copy from it.
 
 1. ~~`Transport` trait in `client-rpc`~~ — done: `client_rpc::Transport`, `Stdio` (was `ServerCommand`),
    `Connection::connect(&dyn Transport, …)`; SSH and in-process transports come later.
-2. `client/crates/oi-server`: `Dispatcher::standard()` + the commands the next features need;
-   the client starts it instead of `openidea-server`.
+2. ~~`client/crates/oi-server`~~ — done: `oi_server::dispatcher()` = `Dispatcher::standard()` +
+   `commands::register` (only `oi_server_info` so far: a client tells `oi-server` from a plain
+   `openidea-server` by it); `Stdio::locate()` finds `oi-server`. Step 3 needs no new commands:
+   React keeps tool-window layout in `localStorage`, so layout stays client-side, and settings
+   use the standard `settings_get` / `settings_set`. `main.rs` mirrors upstream's
+   `crates/ide-host/src/bin/server.rs`: re-check it after each upstream sync.
 3. `client-core`: extension registry (`ToolWindowFactory`, `EditorFeature`, `SettingsPage`,
    `Theme`, …), action system, dock with tool windows and tabs, settings storage via
    `settings_get` / `settings_set`.
@@ -97,14 +101,14 @@ is GPL: never copy from it.
 ## Dev setup
 
 ```sh
-cargo build -p ide-host --bin openidea-server     # repo root, once (~20 min cold on 2 cores)
 cd client
+cargo build -p oi-server                          # the backend (~20 min cold on 2 cores)
 cargo run -p client-app -- /path/to/project --open src/main.rs
-cargo test --workspace                            # e2e tests use target/debug/openidea-server
+cargo test --workspace                            # e2e tests use target/debug/oi-server
 ```
 
-The client finds the server via `$OPENIDEA_SERVER`, next to its own binary, in the repo's
-`target/{debug,release}`, then on `PATH`. `OPENIDEA_SERVER_HOME` isolates backend config and
+The client finds the server via `$OPENIDEA_SERVER`, `oi-server` next to its own binary, in
+`client/target/{debug,release}`, then on `PATH`. `OPENIDEA_SERVER_HOME` isolates backend config and
 caches. `rust-analyzer` on `PATH` enables the language-server test.
 
 Platform dependencies:

@@ -16,6 +16,11 @@ publish = false
 # upstream (read-only)
 ide-core = { path = "../crates/ide-core" }
 ide-jsonrpc = { path = "../crates/ide-jsonrpc" }
+ide-host = { path = "../crates/ide-host" }
+ide-language = { path = "../crates/ide-language" }
+ide-tools = { path = "../crates/ide-tools" }
+ide-dap = { path = "../crates/ide-dap" }
+ide-sdk = { path = "../crates/ide-sdk" }
 
 # internal
 client-rpc = { path = "crates/client-rpc" }
@@ -29,6 +34,7 @@ thiserror = "2"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 tempfile = "3"
+dirs = "6"
 
 [profile.dev]
 opt-level = 0

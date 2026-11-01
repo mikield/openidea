@@ -9,7 +9,7 @@ use ide_jsonrpc::{Handler, Peer};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-/// A way to open a JSON-RPC connection to an `openidea-server`.
+/// A way to open a JSON-RPC connection to a server (`oi-server`, `openidea-server`).
 pub trait Transport: Send + Sync {
     /// Opens the connection; messages from the server go to `handler`.
     ///
@@ -20,25 +20,25 @@ pub trait Transport: Send + Sync {
     fn describe(&self) -> String;
 }
 
-/// Spawns `openidea-server --stdio` locally and talks over its stdin/stdout.
+/// Spawns a server (`oi-server --stdio`) locally and talks over its stdin/stdout.
 #[derive(Debug, Clone)]
 pub struct Stdio {
-    /// The `openidea-server` binary.
+    /// The server binary: `oi-server`, or any `openidea-server` that speaks the protocol.
     pub program: PathBuf,
     /// `OPENIDEA_SERVER_HOME`: config, data and caches of this backend.
     pub home: Option<PathBuf>,
 }
 
 impl Stdio {
-    /// `openidea-server` from `$OPENIDEA_SERVER`, else next to the current executable,
-    /// else the repository's own build (`target/{debug,release}` at the repo root, so
-    /// `cargo run` works during development), else on `PATH`.
+    /// The server from `$OPENIDEA_SERVER`, else `oi-server` next to the current executable,
+    /// else in the client workspace's own build (`client/target/{debug,release}`, so tests and
+    /// `cargo run` find it during development), else on `PATH`.
     pub fn locate() -> Self {
-        let name = format!("openidea-server{}", std::env::consts::EXE_SUFFIX);
+        let name = format!("oi-server{}", std::env::consts::EXE_SUFFIX);
         let program = std::env::var_os("OPENIDEA_SERVER").map(PathBuf::from).unwrap_or_else(|| {
             let sibling = std::env::current_exe().ok().and_then(|e| e.parent().map(|d| d.join(&name)));
-            let repo_target = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../target");
-            let dev_builds = ["debug", "release"].map(|profile| repo_target.join(profile).join(&name));
+            let client_target = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../target");
+            let dev_builds = ["debug", "release"].map(|profile| client_target.join(profile).join(&name));
             sibling.into_iter().chain(dev_builds).find(|p| p.exists()).unwrap_or_else(|| PathBuf::from(&name))
         });
         Self { program, home: std::env::var_os("OPENIDEA_SERVER_HOME").map(PathBuf::from) }
@@ -56,7 +56,7 @@ impl Transport for Stdio {
             &cwd,
             &env,
             handler,
-            Box::new(|line| tracing::debug!(target: "openidea-server", "{line}")),
+            Box::new(|line| tracing::debug!(target: "oi-server", "{line}")),
         )
         .map_err(|e| IdeError::internal(format!("cannot start {}: {e}", self.program.display())))
     }

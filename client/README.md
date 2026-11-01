@@ -1,29 +1,32 @@
 # GPUI client (phase-0 spike)
 
-A native Rust UI (GPUI + gpui-component) for the **unmodified** `openidea-server`.
-The client is remote-first: even a local session spawns `openidea-server --stdio`
+A native Rust UI (GPUI + gpui-component) for upstream's **unmodified** backend, served by our
+`oi-server` (`crates/oi-server`: upstream's standard commands plus ours). The client is
+remote-first: even a local session spawns `oi-server --stdio`
 and speaks the remote-development protocol (`crates/ide-host/src/rpc.rs`), so local
 and SSH sessions share one code path.
 
 This is a separate Cargo workspace on purpose: the root `Cargo.toml` / `Cargo.lock`
 and everything under `crates/` stay untouched, so upstream merges stay clean.
-Upstream crates are used read-only (`ide-core`, `ide-jsonrpc`).
+Upstream crates are used read-only (`ide-core`, `ide-jsonrpc`, `ide-host`, …).
 
 ```
 client/
 ├─ crates/client-rpc   typed protocol client over a `Transport` (stdio), UTF-8 ↔ UTF-16 coordinates, e2e tests
+├─ crates/oi-server    our backend binary: `Dispatcher::standard()` + `oi_*` commands
 └─ crates/client-app   `openidea-gpui`: project tree, editor, problems, status bar
 ```
 
 ## Run
 
 ```sh
-cargo build -p ide-host --bin openidea-server          # at the repo root, once
-cd client && cargo run -p client-app -- /path/to/project --open src/main.rs
+cd client
+cargo build -p oi-server
+cargo run -p client-app -- /path/to/project --open src/main.rs
 ```
 
-The client finds the server in the repo's `target/{debug,release}` (or `$OPENIDEA_SERVER`,
-next to its own binary, on `PATH`). Linux needs a Vulkan or GL driver; headless:
+The client finds `oi-server` next to its own binary, i.e. in `client/target/{debug,release}`
+(or `$OPENIDEA_SERVER`, on `PATH`; an upstream `openidea-server` works too). Linux needs a Vulkan or GL driver; headless:
 `scripts/headless-shot.sh` (Xvfb + Mesa llvmpipe). `OPENIDEA_SERVER_HOME` isolates the
 backend's config and caches. Plan, decisions and next steps: [`PORTING.md`](PORTING.md).
 
@@ -37,8 +40,9 @@ backend's config and caches. Plan, decisions and next steps: [`PORTING.md`](PORT
 - one ordered queue per document: completion never runs against text the
   server has not seen, save never overtakes an edit
 
-`cargo test --workspace` runs the end-to-end tests against the real server
-(built as above); the rust-analyzer test needs `rust-analyzer` on `PATH`.
+`cargo test --workspace` runs `oi-server`'s own end-to-end test, and the client's
+end-to-end tests against the real server once `oi-server` is built (as above); the
+rust-analyzer test needs `rust-analyzer` on `PATH`.
 
 ## Known gaps (spike)
 

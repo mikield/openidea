@@ -1,7 +1,9 @@
-//! End-to-end against the real, unmodified `openidea-server`.
+//! End-to-end against the real backend: `oi-server`, which serves upstream's
+//! unmodified command set.
 //!
-//! Needs the server binary: `cargo build -p ide-host --bin openidea-server` at the
-//! repository root, or `OPENIDEA_SERVER=<path>`. Skipped (with a note) when absent.
+//! Needs the server binary: `cargo build -p oi-server` in `client/`, or
+//! `OPENIDEA_SERVER=<path>` (an upstream `openidea-server` works too). Skipped
+//! (with a note) when absent.
 
 use client_rpc::{Connection, Stdio, text};
 use ide_core::{ChangeSet, IdeEvent, Pos, Severity};
@@ -10,11 +12,7 @@ use std::time::Duration;
 use tokio::sync::mpsc::UnboundedReceiver;
 
 fn server() -> Option<PathBuf> {
-    let path = std::env::var_os("OPENIDEA_SERVER").map(PathBuf::from).unwrap_or_else(|| {
-        Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../../target/debug")
-            .join(format!("openidea-server{}", std::env::consts::EXE_SUFFIX))
-    });
+    let path = Stdio::locate().program;
     if path.exists() {
         Some(path)
     } else {
