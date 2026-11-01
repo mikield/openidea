@@ -10,9 +10,11 @@ use std::time::Duration;
 use tokio::sync::mpsc::UnboundedReceiver;
 
 fn server() -> Option<PathBuf> {
-    let path = std::env::var_os("OPENIDEA_SERVER")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../target/debug/openidea-server"));
+    let path = std::env::var_os("OPENIDEA_SERVER").map(PathBuf::from).unwrap_or_else(|| {
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../../target/debug")
+            .join(format!("openidea-server{}", std::env::consts::EXE_SUFFIX))
+    });
     if path.exists() {
         Some(path)
     } else {

@@ -33,11 +33,15 @@ pub struct ServerCommand {
 
 impl ServerCommand {
     /// `openidea-server` from `$OPENIDEA_SERVER`, else next to the current executable,
-    /// else on `PATH`.
+    /// else the repository's own build (`target/{debug,release}` at the repo root, so
+    /// `cargo run` works during development), else on `PATH`.
     pub fn locate() -> Self {
+        let name = format!("openidea-server{}", std::env::consts::EXE_SUFFIX);
         let program = std::env::var_os("OPENIDEA_SERVER").map(PathBuf::from).unwrap_or_else(|| {
-            let sibling = std::env::current_exe().ok().and_then(|e| e.parent().map(|d| d.join("openidea-server")));
-            sibling.filter(|p| p.exists()).unwrap_or_else(|| PathBuf::from("openidea-server"))
+            let sibling = std::env::current_exe().ok().and_then(|e| e.parent().map(|d| d.join(&name)));
+            let repo_target = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../target");
+            let dev_builds = ["debug", "release"].map(|profile| repo_target.join(profile).join(&name));
+            sibling.into_iter().chain(dev_builds).find(|p| p.exists()).unwrap_or_else(|| PathBuf::from(&name))
         });
         Self { program, home: std::env::var_os("OPENIDEA_SERVER_HOME").map(PathBuf::from) }
     }

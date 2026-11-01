@@ -18,14 +18,14 @@ client/
 ## Run
 
 ```sh
-cargo build -p ide-host --bin openidea-server          # at the repo root
-cd client && cargo build -p client-app
-OPENIDEA_SERVER=../target/debug/openidea-server \
-  target/debug/openidea-gpui /path/to/project --open src/main.rs
+cargo build -p ide-host --bin openidea-server          # at the repo root, once
+cd client && cargo run -p client-app -- /path/to/project --open src/main.rs
 ```
 
-Linux needs a Vulkan or GL driver (headless: Xvfb + Mesa llvmpipe works).
-`OPENIDEA_SERVER_HOME` isolates the backend's config and caches.
+The client finds the server in the repo's `target/{debug,release}` (or `$OPENIDEA_SERVER`,
+next to its own binary, on `PATH`). Linux needs a Vulkan or GL driver; headless:
+`scripts/headless-shot.sh` (Xvfb + Mesa llvmpipe). `OPENIDEA_SERVER_HOME` isolates the
+backend's config and caches. Plan, decisions and next steps: [`PORTING.md`](PORTING.md).
 
 ## What works
 
