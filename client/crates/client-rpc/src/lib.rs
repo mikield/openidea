@@ -2,12 +2,14 @@
 //!
 //! The client is remote-first: even a local session spawns `openidea-server
 //! --stdio` and talks JSON-RPC to it, so local and SSH sessions share one path.
+//! How the bytes travel is a [`Transport`]; everything above it is shared.
 //!
 //! Every call runs on the connection's own Tokio runtime and returns a
 //! runtime-agnostic future, so UI executors (GPUI's) can await it directly.
 
 pub mod proto;
 pub mod text;
+pub mod transport;
 
 use ide_core::{ChangeSet, DocId, IdeError, IdeEvent, IdeResult, Pos, RequestId};
 use ide_jsonrpc::{Handler, Peer, RpcError, codes};
@@ -17,35 +19,11 @@ use serde::de::DeserializeOwned;
 use serde_json::{Value, json};
 use std::collections::HashMap;
 use std::future::Future;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::Arc;
 use tokio::runtime::Handle;
 use tokio::sync::mpsc;
-
-/// How to start the backend.
-#[derive(Debug, Clone)]
-pub struct ServerCommand {
-    /// The `openidea-server` binary.
-    pub program: PathBuf,
-    /// `OPENIDEA_SERVER_HOME`: config, data and caches of this backend.
-    pub home: Option<PathBuf>,
-}
-
-impl ServerCommand {
-    /// `openidea-server` from `$OPENIDEA_SERVER`, else next to the current executable,
-    /// else the repository's own build (`target/{debug,release}` at the repo root, so
-    /// `cargo run` works during development), else on `PATH`.
-    pub fn locate() -> Self {
-        let name = format!("openidea-server{}", std::env::consts::EXE_SUFFIX);
-        let program = std::env::var_os("OPENIDEA_SERVER").map(PathBuf::from).unwrap_or_else(|| {
-            let sibling = std::env::current_exe().ok().and_then(|e| e.parent().map(|d| d.join(&name)));
-            let repo_target = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../target");
-            let dev_builds = ["debug", "release"].map(|profile| repo_target.join(profile).join(&name));
-            sibling.into_iter().chain(dev_builds).find(|p| p.exists()).unwrap_or_else(|| PathBuf::from(&name))
-        });
-        Self { program, home: std::env::var_os("OPENIDEA_SERVER_HOME").map(PathBuf::from) }
-    }
-}
+pub use transport::{Stdio, Transport};
 
 /// One project window's connection to a backend.
 pub struct Connection {
@@ -58,30 +36,19 @@ pub struct Connection {
 type Channels = Arc<Mutex<HashMap<u64, mpsc::UnboundedSender<Value>>>>;
 
 impl Connection {
-    /// Spawns the backend over stdio and performs `initialize`.
+    /// Connects to a backend through `transport` and performs `initialize`.
     ///
     /// Events for `window` (and broadcast ones) arrive on the returned receiver.
     /// Must be called from within a Tokio runtime; calls then run on that runtime.
-    pub async fn spawn(
-        server: &ServerCommand,
+    pub async fn connect(
+        transport: &dyn Transport,
         window: impl Into<String>,
     ) -> IdeResult<(Arc<Self>, ServerInfo, mpsc::UnboundedReceiver<IdeEvent>)> {
         let window = window.into();
         let (events_tx, events_rx) = mpsc::unbounded_channel();
         let channels: Channels = Arc::default();
         let handler = Arc::new(ClientHandler { window: window.clone(), events: events_tx, channels: channels.clone() });
-        let env: Vec<(String, String)> =
-            server.home.iter().map(|h| ("OPENIDEA_SERVER_HOME".to_owned(), h.to_string_lossy().into_owned())).collect();
-        let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("/"));
-        let peer = Peer::spawn(
-            &server.program.to_string_lossy(),
-            &["--stdio".to_owned()],
-            &cwd,
-            &env,
-            handler,
-            Box::new(|line| tracing::debug!(target: "openidea-server", "{line}")),
-        )
-        .map_err(|e| IdeError::internal(format!("cannot start {}: {e}", server.program.display())))?;
+        let peer = transport.connect(handler)?;
         let conn = Arc::new(Self { peer, window, rt: Handle::current(), channels });
         let info: ServerInfo = conn
             .peer

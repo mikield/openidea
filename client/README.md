@@ -11,7 +11,7 @@ Upstream crates are used read-only (`ide-core`, `ide-jsonrpc`).
 
 ```
 client/
-├─ crates/client-rpc   typed protocol client, UTF-8 ↔ UTF-16 coordinates, e2e tests
+├─ crates/client-rpc   typed protocol client over a `Transport` (stdio), UTF-8 ↔ UTF-16 coordinates, e2e tests
 └─ crates/client-app   `openidea-gpui`: project tree, editor, problems, status bar
 ```
 

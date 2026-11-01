@@ -3,7 +3,7 @@
 //! Needs the server binary: `cargo build -p ide-host --bin openidea-server` at the
 //! repository root, or `OPENIDEA_SERVER=<path>`. Skipped (with a note) when absent.
 
-use client_rpc::{Connection, ServerCommand, text};
+use client_rpc::{Connection, Stdio, text};
 use ide_core::{ChangeSet, IdeEvent, Pos, Severity};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -34,8 +34,8 @@ fn fixture(dir: &Path, main_rs: &str) {
 }
 
 async fn connect(home: &Path, server: PathBuf) -> (std::sync::Arc<Connection>, UnboundedReceiver<IdeEvent>) {
-    let cmd = ServerCommand { program: server, home: Some(home.to_path_buf()) };
-    let (conn, info, events) = Connection::spawn(&cmd, "main").await.expect("spawn server");
+    let transport = Stdio { program: server, home: Some(home.to_path_buf()) };
+    let (conn, info, events) = Connection::connect(&transport, "main").await.expect("spawn server");
     assert_eq!(info.protocol, 2);
     (conn, events)
 }

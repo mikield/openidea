@@ -9,7 +9,7 @@ mod doc_sync;
 mod workspace;
 
 use anyhow::Context as _;
-use client_rpc::{Connection, ServerCommand};
+use client_rpc::{Connection, Stdio, Transport as _};
 use gpui::{AppContext, Bounds, KeyBinding, TitlebarOptions, WindowBounds, WindowOptions, px, size};
 use gpui_component::{Root, Theme, ThemeMode};
 use std::path::PathBuf;
@@ -33,18 +33,18 @@ fn main() -> anyhow::Result<()> {
 
     // The connection lives on its own runtime; GPUI drives the UI thread.
     let rt = tokio::runtime::Builder::new_multi_thread().worker_threads(2).enable_all().build()?;
-    let server = ServerCommand::locate();
+    let server = Stdio::locate();
     let started = std::time::Instant::now();
     let (conn, info, events, project) = rt
         .block_on(async {
-            let (conn, info, events) = Connection::spawn(&server, "main").await?;
+            let (conn, info, events) = Connection::connect(&server, "main").await?;
             // Opening a folder from the command line is the user's trust decision.
             conn.trust_project(&root).await?;
             let project = conn.open_project(&root).await?;
             Ok::<_, ide_core::IdeError>((conn, info, events, project))
         })
-        .map_err(|e| anyhow::anyhow!("{}: {}", server.program.display(), e.message))?;
-    tracing::info!("connected to {} in {:?}", server.program.display(), started.elapsed());
+        .map_err(|e| anyhow::anyhow!("{}: {}", server.describe(), e.message))?;
+    tracing::info!("connected to {} in {:?}", server.describe(), started.elapsed());
     let handle = rt.handle().clone();
 
     gpui_platform::application().with_assets(gpui_kit_assets::Assets).run(move |cx| {

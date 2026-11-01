@@ -63,7 +63,8 @@ is GPL: never copy from it.
 
 ## Wave 1: next steps, in order
 
-1. `Transport` trait in `client-rpc` (stdio now, SSH and in-process later); `Connection` uses it.
+1. ~~`Transport` trait in `client-rpc`~~ — done: `client_rpc::Transport`, `Stdio` (was `ServerCommand`),
+   `Connection::connect(&dyn Transport, …)`; SSH and in-process transports come later.
 2. `client/crates/oi-server`: `Dispatcher::standard()` + the commands the next features need;
    the client starts it instead of `openidea-server`.
 3. `client-core`: extension registry (`ToolWindowFactory`, `EditorFeature`, `SettingsPage`,
