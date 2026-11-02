@@ -17,6 +17,4 @@ tokio.workspace = true
 tracing.workspace = true
 anyhow.workspace = true
 lsp-types = { version = "0.97", features = ["proposed"] }
-
-[dev-dependencies]
 serde_json.workspace = true

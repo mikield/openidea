@@ -177,6 +177,62 @@ pub fn format_binding(binding: &str, mac: bool) -> String {
     strokes.join(" ")
 }
 
+/// The action bound to double-tapping `modifier` (`Shift Shift` → `navigate.searchEverywhere`).
+pub fn double_tap_action(cx: &App, modifier: &str) -> Option<String> {
+    let binding = format!("{modifier} {modifier}");
+    let effective = &cx.try_global::<Effective>()?.0;
+    effective.iter().find(|(_, keys)| keys.iter().any(|k| k.eq_ignore_ascii_case(&binding))).map(|(id, _)| id.clone())
+}
+
+/// React's double-tap step: the second tap must start within this of the first one's release.
+const DOUBLE_TAP: std::time::Duration = std::time::Duration::from_millis(300);
+
+/// Recognises a modifier tapped twice alone (press and release, no other key between).
+#[derive(Default)]
+pub struct DoubleTap {
+    /// The modifier held alone right now.
+    held: Option<&'static str>,
+    /// The last lone tap and when it was released.
+    last: Option<(&'static str, std::time::Instant)>,
+}
+
+impl DoubleTap {
+    /// Feeds a modifier change; returns the modifier (`Shift`, `Ctrl`…) when it completes a double tap.
+    pub fn modifiers_changed(&mut self, m: &gpui::Modifiers, now: std::time::Instant) -> Option<&'static str> {
+        let pressed: Vec<&'static str> =
+            [(m.control, "Ctrl"), (m.alt, "Alt"), (m.shift, "Shift"), (m.platform, "Meta")]
+                .into_iter()
+                .filter_map(|(on, name)| on.then_some(name))
+                .collect();
+        match (pressed.as_slice(), self.held) {
+            ([only], None) => {
+                self.held = Some(only);
+                None
+            }
+            ([], Some(released)) => {
+                self.held = None;
+                match self.last.take() {
+                    Some((first, at)) if first == released && now.duration_since(at) <= DOUBLE_TAP => Some(released),
+                    _ => {
+                        self.last = Some((released, now));
+                        None
+                    }
+                }
+            }
+            _ => {
+                self.key_pressed();
+                None
+            }
+        }
+    }
+
+    /// Any other key breaks a tap sequence.
+    pub fn key_pressed(&mut self) {
+        self.held = None;
+        self.last = None;
+    }
+}
+
 /// Replaces the keymap's [`RunAction`] bindings with `bindings`, keeping every
 /// other binding (the components' own). Only ids `bound` accepts are bound, so a
 /// key no plugin implements still reaches the focused view (Tab, Enter…).
@@ -230,6 +286,30 @@ mod tests {
         assert_eq!(to_gpui("Shift Shift"), None);
         assert_eq!(to_gpui("Button4"), None);
         assert_eq!(to_gpui("Ctrl+Alt+Button1"), None);
+    }
+
+    #[test]
+    fn double_taps_need_two_lone_quick_taps() {
+        use std::time::{Duration, Instant};
+        let shift = gpui::Modifiers { shift: true, ..Default::default() };
+        let none = gpui::Modifiers::default();
+        let t0 = Instant::now();
+        let mut taps = DoubleTap::default();
+        assert_eq!(taps.modifiers_changed(&shift, t0), None);
+        assert_eq!(taps.modifiers_changed(&none, t0), None);
+        assert_eq!(taps.modifiers_changed(&shift, t0 + Duration::from_millis(100)), None);
+        assert_eq!(taps.modifiers_changed(&none, t0 + Duration::from_millis(150)), Some("Shift"));
+
+        // Too slow, or a key between: no double tap.
+        taps.modifiers_changed(&shift, t0);
+        taps.modifiers_changed(&none, t0);
+        taps.modifiers_changed(&shift, t0 + Duration::from_millis(400));
+        assert_eq!(taps.modifiers_changed(&none, t0 + Duration::from_millis(450)), None);
+        taps.modifiers_changed(&shift, t0 + Duration::from_millis(500));
+        taps.key_pressed();
+        taps.modifiers_changed(&none, t0 + Duration::from_millis(550));
+        taps.modifiers_changed(&shift, t0 + Duration::from_millis(600));
+        assert_eq!(taps.modifiers_changed(&none, t0 + Duration::from_millis(650)), None);
     }
 
     #[test]

@@ -141,6 +141,8 @@ impl EditorArea {
         self.docs
             .insert(at, OpenDoc { path: path.clone(), sync, editor, dirty: info.dirty, read_only, _changes: changes });
         self.push_diagnostics(&path, cx);
+        // Recent Files (React marks a file when an editor opens it).
+        drop(self.conn.invoke::<serde_json::Value>("mark_recent", serde_json::json!({ "path": path })));
         self.activate(at, window, cx);
     }
 

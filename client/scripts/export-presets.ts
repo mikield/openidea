@@ -303,7 +303,13 @@ function iconTables(): Record<string, unknown> {
   const patterns = evaluate(literal("NAME_PATTERNS")) as Array<[RegExp, string]>;
   return {
     from: revision(["src/ui/icons.tsx"]),
-    icons: evaluate(literal("ICONS")),
+    // `symbol-<kind>` names resolve through SYMBOL_ICONS (React's `iconPath`).
+    icons: {
+      ...evaluate(literal("ICONS")),
+      ...Object.fromEntries(
+        Object.entries(evaluate(literal("SYMBOL_ICONS")) as Record<string, string>).map(([k, v]) => [`symbol-${k}`, v]),
+      ),
+    },
     fileNames: evaluate(`table(${literal("FILE_NAMES").replace(/^\(/, "").replace(/\)$/, "")})`),
     namePatterns: patterns.map(([re, icon]) => [re.source, icon]),
     extensions: evaluate(`table(${literal("EXT_ICONS").replace(/^\(/, "").replace(/\)$/, "")})`),

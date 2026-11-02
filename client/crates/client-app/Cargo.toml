@@ -19,6 +19,7 @@ plugin-project-tree.workspace = true
 plugin-problems.workspace = true
 plugin-vcs.workspace = true
 plugin-terminal.workspace = true
+plugin-search.workspace = true
 ide-core.workspace = true
 tokio.workspace = true
 anyhow.workspace = true

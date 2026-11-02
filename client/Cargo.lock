@@ -1222,6 +1222,7 @@ dependencies = [
  "plugin-presets",
  "plugin-problems",
  "plugin-project-tree",
+ "plugin-search",
  "plugin-terminal",
  "plugin-vcs",
  "tokio",
@@ -7530,7 +7531,23 @@ dependencies = [
  "gpui-component",
  "gpui-pre",
  "ide-core",
+ "serde",
  "serde_json",
+]
+
+[[package]]
+name = "plugin-search"
+version = "0.0.1"
+dependencies = [
+ "client-core",
+ "client-rpc",
+ "gpui-component",
+ "gpui-pre",
+ "ide-core",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
 ]
 
 [[package]]

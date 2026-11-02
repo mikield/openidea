@@ -1,4 +1,4 @@
-//! `openidea-gpui [PROJECT_DIR] [--open RELATIVE_FILE]...`
+//! `openidea-gpui [PROJECT_DIR] [--open RELATIVE_FILE]... [--run-action ACTION_ID]...`
 //!
 //! Phase-0 spike: a GPUI client of `oi-server` (upstream's backend plus our
 //! commands). Even locally the client spawns the server and speaks the remote
@@ -19,10 +19,12 @@ fn main() -> anyhow::Result<()> {
         .init();
 
     let mut args = std::env::args().skip(1);
-    let (mut project, mut open) = (None, Vec::new());
+    let (mut project, mut open, mut actions) = (None, Vec::new(), Vec::new());
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--open" => open.extend(args.next().map(PathBuf::from)),
+            // Runs an action once the window is up (screenshots, demos): `--run-action navigate.gotoFile`.
+            "--run-action" => actions.extend(args.next()),
             _ => project = Some(PathBuf::from(arg)),
         }
     }
@@ -57,6 +59,7 @@ fn main() -> anyhow::Result<()> {
             Box::new(plugin_problems::ProblemsPlugin),
             Box::new(plugin_vcs::VcsPlugin),
             Box::new(plugin_terminal::TerminalPlugin),
+            Box::new(plugin_search::SearchPlugin),
         ];
         client_core::activate(&plugins, cx);
 
@@ -70,14 +73,23 @@ fn main() -> anyhow::Result<()> {
             titlebar: Some(TitlebarOptions { title: Some("OpenIDEA · GPUI".into()), ..TitleBar::title_bar_options() }),
             ..Default::default()
         };
-        cx.open_window(options, |window, cx| {
-            let workbench = cx.new(|cx| Workbench::new(services, layout, window, cx));
-            tracing::info!("window open after {:?}", started.elapsed());
-            cx.new(|cx| Root::new(workbench, window, cx))
-        })
-        .expect("open window");
+        let mut workbench = None;
+        let handle = cx
+            .open_window(options, |window, cx| {
+                let wb = cx.new(|cx| Workbench::new(services, layout, window, cx));
+                workbench = Some(wb.clone());
+                tracing::info!("window open after {:?}", started.elapsed());
+                cx.new(|cx| Root::new(wb, window, cx))
+            })
+            .expect("open window");
         for file in open {
             editors.update(cx, |editors, cx| editors.open(file, cx));
+        }
+        if let Some(workbench) = workbench {
+            for action in actions {
+                let _ = handle
+                    .update(cx, |_, window, cx| workbench.update(cx, |wb, cx| wb.run_action(&action, window, cx)));
+            }
         }
         cx.activate(true);
     });

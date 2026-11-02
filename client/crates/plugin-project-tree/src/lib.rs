@@ -43,6 +43,49 @@ pub struct Row {
     pub entry: FileEntry,
 }
 
+#[derive(Clone, Debug, serde::Deserialize)]
+pub struct SourceFolder {
+    /// Project-relative, `/`-separated; `""` is the root.
+    pub path: String,
+    /// `source` | `test` | `resources` | `testResources` | `excluded`.
+    pub kind: String,
+}
+
+#[derive(serde::Deserialize)]
+struct ProjectRoots {
+    roots: Vec<SourceFolder>,
+}
+
+/// `path` relative to `root`, `/`-separated (`""` for the root).
+fn relative(root: &Path, path: &Path) -> String {
+    path.strip_prefix(root).map(|p| p.to_string_lossy().replace('\\', "/")).unwrap_or_default()
+}
+
+/// A folder's icon by role (React's `folderKind` without JVM packages / build output):
+/// a marked root keeps its role; inside an excluded root (or excluded itself) it is excluded;
+/// `.github` has its own icon.
+fn folder_icon(roots: &[SourceFolder], rel: &str, name: &str, excluded: bool) -> &'static str {
+    let role = |kind: &str| match kind {
+        "source" => "folder-source",
+        "test" => "folder-test",
+        "resources" => "folder-resources",
+        "testResources" => "folder-test-resources",
+        _ => "folder-excluded",
+    };
+    if let Some(exact) = roots.iter().find(|r| r.path == rel) {
+        return role(&exact.kind);
+    }
+    let inside_excluded =
+        roots.iter().any(|r| r.kind == "excluded" && (r.path.is_empty() || rel.starts_with(&format!("{}/", r.path))));
+    if excluded || inside_excluded {
+        "folder-excluded"
+    } else if name == ".github" {
+        "folder-github"
+    } else {
+        "folder"
+    }
+}
+
 /// Directories first, then by name; `.git` is not shown.
 fn tidy(mut entries: Vec<FileEntry>) -> Vec<FileEntry> {
     entries.retain(|e| e.name != ".git");
@@ -76,6 +119,8 @@ pub struct ProjectTree {
     editors: Entity<Editors>,
     root: PathBuf,
     name: SharedString,
+    /// Source / test / resources / excluded folders (`project_roots`), project-relative.
+    roots: Vec<SourceFolder>,
     children: HashMap<PathBuf, Vec<FileEntry>>,
     expanded: HashSet<PathBuf>,
     rows: Vec<Row>,
@@ -87,6 +132,9 @@ impl ProjectTree {
     pub fn new(services: &Services, cx: &mut Context<Self>) -> Self {
         let subscriptions = vec![
             cx.subscribe(&services.backend, |this, _, event: &IdeEvent, cx| {
+                if let IdeEvent::ProjectRootsChanged { .. } = event {
+                    this.load_roots(cx);
+                }
                 if let IdeEvent::FsChanged { created, removed, .. } = event {
                     let dirs: HashSet<PathBuf> = created
                         .iter()
@@ -112,6 +160,7 @@ impl ProjectTree {
             editors: services.editors.clone(),
             root: root.clone(),
             name: backend.project().name.clone().into(),
+            roots: Vec::new(),
             children: HashMap::new(),
             expanded: HashSet::from([root.clone()]),
             rows: Vec::new(),
@@ -119,6 +168,7 @@ impl ProjectTree {
             _subscriptions: subscriptions,
         };
         tree.load_dir(root, cx);
+        tree.load_roots(cx);
         tree
     }
 
@@ -136,6 +186,19 @@ impl ProjectTree {
                 }
                 cx.notify();
             });
+        })
+        .detach();
+    }
+
+    fn load_roots(&mut self, cx: &mut Context<Self>) {
+        let read = self.conn.invoke::<ProjectRoots>("project_roots", serde_json::json!({}));
+        cx.spawn(async move |this, cx| {
+            if let Ok(roots) = read.await {
+                let _ = this.update(cx, |tree, cx| {
+                    tree.roots = roots.roots;
+                    cx.notify();
+                });
+            }
         })
         .detach();
     }
@@ -189,7 +252,16 @@ impl Render for ProjectTree {
                         (true, false) => Icon::new("chevron-right").size(px(16.)).into_any_element(),
                         _ => div().size(px(16.)).flex_none().into_any_element(),
                     };
-                    let icon = if dir { "folder" } else { file_icon_name(&row.entry.name) };
+                    let icon = if dir {
+                        folder_icon(
+                            &self.roots,
+                            &relative(&self.root, &row.entry.path.0),
+                            &row.entry.name,
+                            row.entry.excluded,
+                        )
+                    } else {
+                        file_icon_name(&row.entry.name)
+                    };
                     row_frame(ix, row.depth + 1, hover)
                         .when(active.as_deref() == Some(row.entry.path.0.as_path()), |r| r.bg(selected))
                         .child(chevron)
@@ -241,6 +313,19 @@ mod tests {
             "ignored": false, "excluded": false, "hidden": false,
         }))
         .unwrap()
+    }
+
+    #[test]
+    fn folders_show_their_role() {
+        let root = |path: &str, kind: &str| SourceFolder { path: path.into(), kind: kind.into() };
+        let roots = [root("src", "source"), root("tests", "test"), root("target", "excluded")];
+        assert_eq!(folder_icon(&roots, "src", "src", false), "folder-source");
+        assert_eq!(folder_icon(&roots, "tests", "tests", false), "folder-test");
+        assert_eq!(folder_icon(&roots, "target/debug", "debug", false), "folder-excluded");
+        assert_eq!(folder_icon(&roots, "src/ui", "ui", false), "folder");
+        assert_eq!(folder_icon(&roots, ".github", ".github", false), "folder-github");
+        assert_eq!(folder_icon(&roots, "node_modules", "node_modules", true), "folder-excluded");
+        assert_eq!(relative(Path::new("/p"), Path::new("/p/src/ui")), "src/ui");
     }
 
     #[test]

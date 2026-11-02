@@ -31,6 +31,7 @@ plugin-project-tree = { path = "crates/plugin-project-tree" }
 plugin-problems = { path = "crates/plugin-problems" }
 plugin-vcs = { path = "crates/plugin-vcs" }
 plugin-terminal = { path = "crates/plugin-terminal" }
+plugin-search = { path = "crates/plugin-search" }
 
 # GPUI as gpui-component pins it (a published snapshot of Zed's gpui), pinned exactly.
 gpui = { package = "gpui-pre", version = "=0.3.10" }

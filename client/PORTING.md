@@ -140,9 +140,19 @@ is GPL: never copy from it.
      one ordered queue; the terminal's replies to queries (conpty's DSR) go back to the PTY.
      Tabs "Local", "Local (2)"…; an end-to-end test runs a real shell on `oi-server`.
      Not yet: selection / copy, mouse reporting, shell choice, terminal settings.
-   - Still missing against React: folder roles (source / test / resources icons need
-     `project_roots`), main menu, run configuration and search / settings in the title bar,
-     right status items (Vim, interpreter, memory), editor tab overflow / pinning / splits.
+   - Search Everywhere (`plugin-search`): Shift, Shift and Go to File / Class / Symbol / Action /
+     Recent Files open one popup on the matching tab (React's `sectionsFor`, limits, headers in
+     All); `find_files` / `find_symbols` / `recent_files` plus the registered actions; the editor
+     marks opened files recent. Popups are a core service (`Workbench::show_overlay`, closed by
+     `DismissEvent` or a click outside). Double-tapped modifiers are recognised by the core
+     (`keymap::DoubleTap`, React's 300 ms) and run the keymap's `Shift Shift`-style bindings.
+     Not yet: the Text tab, a symbol jumps to its file but not its line, recent actions.
+   - Folder roles in the project tree from `project_roots` (source / test / resources / test
+     resources / excluded, `.github`); JVM packages and build output folders come with wave 2.
+   - `--run-action ID` runs an action once the window is up (screenshots without input).
+   - Still missing against React: main menu, run configuration and search / settings buttons in
+     the title bar, right status items (Vim, interpreter, memory), editor tab overflow / pinning /
+     splits, terminal selection.
    - Reference for IDEA behaviour where the React port is silent: OpenIDE
      (gitflic.ru/project/openide/openide, an IntelliJ Community fork, Apache-2.0); the React
      code stays the spec.

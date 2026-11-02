@@ -15,7 +15,7 @@ client/
 ├─ crates/client-rpc   typed protocol client over a `Transport` (stdio), UTF-8 ↔ UTF-16 coordinates, e2e tests
 ├─ crates/oi-server    our backend binary: `Dispatcher::standard()` + `oi_*` commands
 ├─ crates/client-core  workbench core: plugins and extension points, actions, dock, settings, keymap, theme
-├─ crates/plugin-*     features as plugins: editor, project-tree, problems, terminal, vcs, presets
+├─ crates/plugin-*     features as plugins: editor, project-tree, problems, terminal, search, vcs, presets
 └─ crates/client-app   `openidea-gpui`: `main.rs` and the list of plugins
 ```
 

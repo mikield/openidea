@@ -12,8 +12,9 @@ use crate::tool_window::ToolWindowPanel;
 use crate::{ActionDef, Icon, RunAction, SettingsChanged, keymap, theme};
 use gpui::prelude::FluentBuilder as _;
 use gpui::{
-    AnyView, App, AppContext, ClickEvent, Context, Entity, FocusHandle, InteractiveElement, IntoElement, ParentElement,
-    Pixels, Render, SharedString, StatefulInteractiveElement, Styled, Subscription, Task, Window, div, px,
+    AnyView, App, AppContext, ClickEvent, Context, DismissEvent, Entity, EventEmitter, FocusHandle, Focusable,
+    InteractiveElement, IntoElement, KeyDownEvent, ModifiersChangedEvent, MouseButton, ParentElement, Pixels, Render,
+    SharedString, StatefulInteractiveElement, Styled, Subscription, Task, Window, div, px,
 };
 use gpui_component::dock::{
     BasePanelView, DockArea, DockEvent, DockLayout, DockPlacement, PaneRef, PanelId, PanelState, panel_handle,
@@ -94,6 +95,9 @@ pub struct Workbench {
     title_right: Vec<AnyView>,
     stripes: Vec<Stripe>,
     focus: FocusHandle,
+    /// A popup over the window (Search Everywhere…) and its dismiss subscription.
+    overlay: Option<(AnyView, Subscription)>,
+    taps: keymap::DoubleTap,
     save: Option<Task<()>>,
     _subscriptions: Vec<Subscription>,
 }
@@ -158,6 +162,8 @@ impl Workbench {
             title_right,
             stripes,
             focus: cx.focus_handle(),
+            overlay: None,
+            taps: keymap::DoubleTap::default(),
             save: None,
             _subscriptions: subscriptions,
         };
@@ -328,6 +334,36 @@ impl Workbench {
         }
     }
 
+    /// Shows `view` over the window and focuses it; it closes on [`DismissEvent`] or a click outside.
+    pub fn show_overlay<V: Render + Focusable + EventEmitter<DismissEvent>>(
+        &mut self,
+        view: Entity<V>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let dismissed =
+            cx.subscribe_in(&view, window, |wb, _, _: &DismissEvent, window, cx| wb.close_overlay(window, cx));
+        view.focus_handle(cx).focus(window, cx);
+        self.overlay = Some((view.into(), dismissed));
+        cx.notify();
+    }
+
+    pub fn close_overlay(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.overlay.take().is_some() {
+            window.focus(&self.focus, cx);
+            cx.notify();
+        }
+    }
+
+    /// Double-tapped modifiers (`Shift Shift`): GPUI key bindings cannot express them.
+    fn on_modifiers_changed(&mut self, event: &ModifiersChangedEvent, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(modifier) = self.taps.modifiers_changed(&event.modifiers, std::time::Instant::now())
+            && let Some(action) = keymap::double_tap_action(cx, modifier)
+        {
+            self.run_action(&action, window, cx);
+        }
+    }
+
     fn on_run_action(&mut self, action: &RunAction, window: &mut Window, cx: &mut Context<Self>) {
         self.run_action(&action.id, window, cx);
     }
@@ -402,12 +438,15 @@ impl Render for Workbench {
             .child(div().flex_1())
             .children(self.status_right.iter().cloned());
         v_flex()
+            .relative()
             .size_full()
             .bg(theme::token(cx, "bg-frame"))
             .text_color(theme::token(cx, "fg"))
             .key_context("Workbench")
             .track_focus(&self.focus)
             .on_action(cx.listener(Self::on_run_action))
+            .on_modifiers_changed(cx.listener(Self::on_modifiers_changed))
+            .capture_key_down(cx.listener(|wb, _: &KeyDownEvent, _, _| wb.taps.key_pressed()))
             .child(WorkbenchTitleBar {
                 project: project.into(),
                 left: self.title_left.clone(),
@@ -423,6 +462,19 @@ impl Render for Workbench {
                     .when(right.is_empty(), |row| row.pr(px(3.))),
             )
             .child(status)
+            .children(self.overlay.as_ref().map(|(view, _)| {
+                // Popups sit near the top centre, like IDEA's; a click beside one closes it.
+                div()
+                    .absolute()
+                    .top_0()
+                    .left_0()
+                    .size_full()
+                    .flex()
+                    .justify_center()
+                    .pt(px(90.))
+                    .on_mouse_down(MouseButton::Left, cx.listener(|wb, _, window, cx| wb.close_overlay(window, cx)))
+                    .child(view.clone())
+            }))
     }
 }
 
