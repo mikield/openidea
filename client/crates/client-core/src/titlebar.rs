@@ -51,13 +51,14 @@ impl RenderOnce for WorkbenchTitleBar {
     fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
         let slot = project_color_index(&self.project);
         let avatar: Hsla = token(cx, &format!("project-color-{slot}"));
-        TitleBar::new().bg(token(cx, "bg-frame")).border_color(token(cx, "bg-frame")).child(
+        // `--h-titlebar`.
+        TitleBar::new().h(px(40.)).bg(token(cx, "bg-frame")).border_color(token(cx, "bg-frame")).child(
             h_flex()
                 .flex_1()
                 .h_full()
                 .gap(px(12.))
                 .pl(px(8.))
-                .text_sm()
+                .text_size(px(13.))
                 .text_color(token(cx, "fg"))
                 .child(
                     h_flex()
@@ -70,7 +71,7 @@ impl RenderOnce for WorkbenchTitleBar {
                                 .flex()
                                 .items_center()
                                 .justify_center()
-                                .text_xs()
+                                .text_size(px(12.))
                                 .text_color(token(cx, "fg-on-accent"))
                                 .child(project_initials(&self.project)),
                         )

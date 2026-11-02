@@ -255,7 +255,7 @@ impl EditorArea {
                     .flex()
                     .items_center()
                     .justify_center()
-                    .text_xs()
+                    .text_size(px(12.))
                     .text_color(fg_muted)
                     .hover(move |b| b.bg(hover))
                     // A modified document shows a dot until hovered, like IDEA.
@@ -309,7 +309,7 @@ fn empty_hints(cx: &App) -> gpui::Div {
         .items_center()
         .justify_center()
         .gap(px(10.))
-        .text_sm()
+        .text_size(px(13.))
         .children(rows)
         .child(div().pt(px(6.)).text_color(token(cx, "fg-subtle")).child("Open a file from the Project tool window"))
 }
@@ -330,10 +330,12 @@ impl Render for EditorArea {
                     .flex_none()
                     .px(px(6.))
                     .gap(px(2.))
-                    .text_sm()
+                    .text_size(px(13.))
                     .overflow_x_scroll()
                     .children(tabs)
-                    .child(div().pl(px(8.)).text_xs().text_color(token(cx, "fg-subtle")).child(self.note.clone())),
+                    .child(
+                        div().pl(px(8.)).text_size(px(12.)).text_color(token(cx, "fg-subtle")).child(self.note.clone()),
+                    ),
             )
             .child(div().flex_1().min_h_0().child(Editor::new(&editor).bordered(false).h(relative(1.))))
     }

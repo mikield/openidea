@@ -45,3 +45,18 @@ impl ActionDef {
         self
     }
 }
+
+/// Moves a tool window to another dock (its header's options menu, a stripe drop).
+#[derive(Clone, PartialEq, Debug, gpui::Action)]
+#[action(namespace = openidea, no_json)]
+pub struct MoveToolWindow {
+    pub id: SharedString,
+    pub to: crate::Anchor,
+}
+
+/// Hides a tool window: closes the dock it shows in.
+#[derive(Clone, PartialEq, Debug, gpui::Action)]
+#[action(namespace = openidea, no_json)]
+pub struct HideToolWindow {
+    pub id: SharedString,
+}

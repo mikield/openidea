@@ -62,7 +62,15 @@ fn label(text: &'static str) -> ViewBuilder {
 }
 
 fn tool(id: &'static str, anchor: Anchor, order: i32) -> ToolWindow {
-    ToolWindow { id, title: id.into(), icon: "toolwindow-project".into(), anchor, order, build: label(id) }
+    ToolWindow {
+        id,
+        title: id.into(),
+        icon: "toolwindow-project".into(),
+        anchor,
+        order,
+        own_header: false,
+        build: label(id),
+    }
 }
 
 struct TestPlugin(Vec<ToolWindow>);
@@ -157,4 +165,28 @@ fn tool_windows_dock_toggle_and_their_layout_persists(cx: &mut TestAppContext) {
     assert_eq!(visible(&restored, vcx), ["structure"]);
     toggle(&restored, "terminal", vcx);
     assert_eq!(visible(&restored, vcx), ["terminal", "structure"], "terminal stayed the bottom dock's tab");
+
+    // IDEA's "Move to": into an empty dock (created), then into one that holds a tool window.
+    restored.update_in(vcx, |wb, window, cx| wb.move_tool_window("problems", Anchor::Right, window, cx));
+    assert!(visible(&restored, vcx).contains(&"problems"), "moved and shown");
+    restored.read_with(vcx, |wb, cx| {
+        let area = wb.dock().read(cx);
+        let in_right = area.layout(DockPlacement::Right).is_some_and(|t| t.panels().count() == 2);
+        assert!(in_right, "problems joined structure's dock");
+    });
+    restored.update_in(vcx, |wb, window, cx| wb.move_tool_window("terminal", Anchor::Left, window, cx));
+    restored.read_with(vcx, |wb, cx| {
+        let area = wb.dock().read(cx);
+        assert_eq!(area.layout(DockPlacement::Left).map(|t| t.panels().count()), Some(2));
+        assert_eq!(area.layout(DockPlacement::Bottom).map_or(0, |t| t.panels().count()), 0);
+    });
+    // The bottom dock is empty now: moving there starts it again.
+    restored.update_in(vcx, |wb, window, cx| wb.move_tool_window("structure", Anchor::Bottom, window, cx));
+    restored.read_with(vcx, |wb, cx| {
+        let area = wb.dock().read(cx);
+        assert_eq!(area.layout(DockPlacement::Bottom).map(|t| t.panels().count()), Some(1));
+    });
+    assert!(visible(&restored, vcx).contains(&"structure"));
+    restored.update_in(vcx, |wb, window, cx| wb.hide_tool_window("terminal", window, cx));
+    assert!(!visible(&restored, vcx).contains(&"terminal"));
 }

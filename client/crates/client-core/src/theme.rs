@@ -214,9 +214,40 @@ fn is_color(value: &str) -> bool {
     value.starts_with('#') && matches!(value.len(), 4 | 5 | 7 | 9) && value[1..].chars().all(|c| c.is_ascii_hexdigit())
 }
 
+/// The fonts a theme is applied with (React: `--font-ui` / `--font-mono`, `--fs-ui` / `--fs-code`).
+#[derive(Clone, Debug, PartialEq)]
+pub struct Fonts {
+    /// `None`: the platform's UI font.
+    pub ui: Option<String>,
+    pub mono: Option<String>,
+    pub size: f32,
+    pub mono_size: f32,
+}
+
+impl Default for Fonts {
+    fn default() -> Self {
+        Self { ui: None, mono: None, size: 13., mono_size: 13. }
+    }
+}
+
+impl Fonts {
+    /// React's font stacks against the installed fonts: Inter, else the system UI font; the
+    /// editor font from the settings, else JetBrains Mono, else the platform's monospace.
+    pub fn pick(installed: &[String], editor_family: &str, editor_size: f32) -> Self {
+        let has = |name: &str| installed.iter().any(|f| f.eq_ignore_ascii_case(name));
+        let first = |names: &[&str]| names.iter().find(|n| !n.is_empty() && has(n)).map(|n| n.to_string());
+        Self {
+            ui: first(&["Inter Variable", "Inter"]),
+            mono: first(&[editor_family, "JetBrains Mono", "JetBrains Mono NL"]),
+            size: 13.,
+            mono_size: if editor_size > 0. { editor_size } else { 13. },
+        }
+    }
+}
+
 /// gpui-component's config for `theme`, with `accent` (`#rrggbb`) replacing the
 /// theme's own unless it is one of the default accents.
-pub fn theme_config(theme: &ThemeDef, accent: Option<&str>) -> ThemeConfig {
+pub fn theme_config(theme: &ThemeDef, accent: Option<&str>, fonts: &Fonts) -> ThemeConfig {
     let custom = accent.filter(|a| is_color(a) && !THEME_ACCENTS.contains(&a.to_ascii_lowercase().as_str()));
     let color = |token: &str| -> Option<&str> {
         match (token, custom) {
@@ -246,12 +277,20 @@ pub fn theme_config(theme: &ThemeDef, accent: Option<&str>) -> ThemeConfig {
         })
         .collect();
     highlight.insert("syntax".into(), Value::Object(syntax));
-    let config = json!({
+    let mut config = json!({
         "name": theme.name.as_ref(),
+        "font.size": fonts.size,
+        "mono_font.size": fonts.mono_size,
         "mode": match theme.kind { ThemeKind::Dark => "dark", ThemeKind::Light => "light" },
         "colors": pick(COLORS),
         "highlight": highlight,
     });
+    if let Some(ui) = &fonts.ui {
+        config["font.family"] = json!(ui);
+    }
+    if let Some(mono) = &fonts.mono {
+        config["mono_font.family"] = json!(mono);
+    }
     serde_json::from_value(config).unwrap_or_else(|e| {
         tracing::warn!("theme {}: {e}", theme.id);
         ThemeConfig::default()
@@ -279,13 +318,13 @@ pub fn is_dark(cx: &App) -> bool {
 }
 
 /// Makes `theme` the current one.
-pub fn apply(theme: &ThemeDef, accent: Option<&str>, window: Option<&mut Window>, cx: &mut App) {
+pub fn apply(theme: &ThemeDef, accent: Option<&str>, fonts: &Fonts, window: Option<&mut Window>, cx: &mut App) {
     let mut current = theme.clone();
     if let Some(accent) = accent.filter(|a| is_color(a) && !THEME_ACCENTS.contains(&a.to_ascii_lowercase().as_str())) {
         current.tokens.insert("accent".into(), accent.to_owned());
     }
     cx.set_global(Current(Rc::new(current)));
-    let config = theme_config(theme, accent);
+    let config = theme_config(theme, accent, fonts);
     let mode = config.mode;
     Theme::global_mut(cx).apply_config(&Rc::new(config));
     Theme::change(mode, window, cx);
@@ -338,7 +377,7 @@ mod tests {
                 ("space-2", "8px"),
             ],
         );
-        let config = serde_json::to_value(theme_config(&t, None)).unwrap();
+        let config = serde_json::to_value(theme_config(&t, None, &Fonts::default())).unwrap();
         assert_eq!(config["mode"], "dark");
         assert_eq!(config["colors"]["background"], "#191a1c");
         assert_eq!(config["colors"]["primary.background"], "#3871e1");
@@ -348,9 +387,9 @@ mod tests {
         assert!(!highlight["syntax"]["keyword"]["color"].is_null());
         assert_eq!(highlight["syntax"]["comment"]["font_style"], "italic");
 
-        let custom = serde_json::to_value(theme_config(&t, Some("#24a394"))).unwrap();
+        let custom = serde_json::to_value(theme_config(&t, Some("#24a394"), &Fonts::default())).unwrap();
         assert_eq!(custom["colors"]["primary.background"], "#24a394");
-        let default_accent = serde_json::to_value(theme_config(&t, Some("#3871E1"))).unwrap();
+        let default_accent = serde_json::to_value(theme_config(&t, Some("#3871E1"), &Fonts::default())).unwrap();
         assert_eq!(default_accent["colors"]["primary.background"], "#3871e1", "the default accent keeps the theme's");
     }
 }

@@ -112,7 +112,7 @@ mod tests {
                 let value = theme.token(token).unwrap_or_else(|| panic!("{}: no {token}", theme.id));
                 assert!(value.starts_with('#'), "{}: {token} = {value}", theme.id);
             }
-            let config = serde_json::to_value(theme_config(&theme, None)).unwrap();
+            let config = serde_json::to_value(theme_config(&theme, None, &Default::default())).unwrap();
             assert_eq!(config["name"], theme.name.as_ref());
             assert!(config["colors"]["background"].is_string(), "{}", theme.id);
             assert!(!config["highlight"]["syntax"]["keyword"]["color"].is_null(), "{}", theme.id);

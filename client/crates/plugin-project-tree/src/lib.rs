@@ -31,6 +31,7 @@ impl Plugin for ProjectTreePlugin {
             icon: "toolwindow-project".into(),
             anchor: Anchor::Left,
             order: 0,
+            own_header: false,
             build: Rc::new(|services, _, cx| cx.new(|cx| ProjectTree::new(services, cx)).into()),
         });
     }
@@ -281,7 +282,7 @@ impl Render for ProjectTree {
             .size_full()
             .overflow_y_scroll()
             .px(px(6.))
-            .text_sm()
+            .text_size(px(13.))
             .children(self.error.clone().map(|e| div().px_2().text_color(danger).child(e)))
             .child(root)
             .children(rows.into_iter().flatten())

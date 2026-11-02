@@ -60,6 +60,9 @@ pub struct ToolWindow {
     pub anchor: Anchor,
     /// Order within its anchor; lower first.
     pub order: i32,
+    /// The view draws its own header (React `headerContent`: Terminal's tabs beside the title);
+    /// it puts [`crate::tool_window_controls`] at its right end.
+    pub own_header: bool,
     pub build: ViewBuilder,
 }
 
@@ -260,7 +263,15 @@ mod tests {
     }
 
     fn tool(id: &'static str, anchor: Anchor, order: i32) -> ToolWindow {
-        ToolWindow { id, title: id.into(), icon: "toolwindow-project".into(), anchor, order, build: view() }
+        ToolWindow {
+            id,
+            title: id.into(),
+            icon: "toolwindow-project".into(),
+            anchor,
+            order,
+            own_header: false,
+            build: view(),
+        }
     }
 
     #[test]

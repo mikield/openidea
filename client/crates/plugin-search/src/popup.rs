@@ -212,9 +212,14 @@ impl SearchEverywhere {
             .when(self.selected == Some(ix), |r| r.bg(selected))
             .on_click(cx.listener(move |popup, _: &ClickEvent, window, cx| popup.activate(ix, window, cx)));
         match &self.rows[ix] {
-            Row::Header(title) => {
-                div().px(px(10.)).pt(px(8.)).pb(px(2.)).text_xs().text_color(muted).child(*title).into_any_element()
-            }
+            Row::Header(title) => div()
+                .px(px(10.))
+                .pt(px(8.))
+                .pb(px(2.))
+                .text_size(px(12.))
+                .text_color(muted)
+                .child(*title)
+                .into_any_element(),
             Row::File(f) => {
                 let name =
                     Path::new(&f.rel_path).file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
@@ -277,7 +282,7 @@ impl Render for SearchEverywhere {
             .border_color(token(cx, "border-popup"))
             .rounded(px(10.))
             .shadow_lg()
-            .text_sm()
+            .text_size(px(13.))
             .text_color(fg)
             .overflow_hidden()
             // Keep clicks inside from closing the popup.

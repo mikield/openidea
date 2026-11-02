@@ -150,6 +150,17 @@ is GPL: never copy from it.
    - Folder roles in the project tree from `project_roots` (source / test / resources / test
      resources / excluded, `.github`); JVM packages and build output folders come with wave 2.
    - `--run-action ID` runs an action once the window is up (screenshots without input).
+   - IDEA's tool window handling (the skin draws it; base only offers callbacks): the inner edge of
+     each dock resizes it (`DockContext::resize_to`); the header's options menu moves a tool
+     window (Move to Left / Right / Bottom) and Hide closes its dock; the header drags it onto
+     another island (`drag_panel` / `drop_panel`, a drop placeholder); stripe buttons drag to
+     another stripe; stripes follow where each tool window docks now. One tool window shows per
+     island (no tab strip), as in IDEA. `ToolWindow.own_header` lets a view draw its header row
+     (Terminal: title, session tabs, `tool_window_controls`).
+   - Type and chrome as React: 13 / 12 px (`--fs-ui` / `--fs-small`), Inter when installed (else
+     the system UI font; the fonts React ships come from npm and are not in the repository),
+     the editor font from settings else JetBrains Mono, 40 px title bar, an empty status bar
+     when idle.
    - Still missing against React: main menu, run configuration and search / settings buttons in
      the title bar, right status items (Vim, interpreter, memory), editor tab overflow / pinning /
      splits, terminal selection.

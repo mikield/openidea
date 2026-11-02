@@ -5,7 +5,7 @@
 use client_core::{Anchor, DiagnosticsStore, Editors, Extensions, Plugin, Services, ToolWindow};
 use gpui::{
     App, AppContext, ClickEvent, Context, Entity, InteractiveElement, IntoElement, ParentElement, Render,
-    StatefulInteractiveElement, Styled, Window, div,
+    StatefulInteractiveElement, Styled, Window, div, px,
 };
 use gpui_component::{ActiveTheme, h_flex};
 use ide_core::{Diagnostic, Severity};
@@ -26,6 +26,7 @@ impl Plugin for ProblemsPlugin {
             icon: "toolwindow-problems".into(),
             anchor: Anchor::Bottom,
             order: 0,
+            own_header: false,
             build: Rc::new(|services, _, cx| cx.new(|cx| Problems::new(services, cx)).into()),
         });
     }
@@ -63,7 +64,7 @@ impl Render for Problems {
             return div()
                 .size_full()
                 .p_2()
-                .text_sm()
+                .text_size(px(13.))
                 .text_color(theme.muted_foreground)
                 .child("No problems")
                 .into_any_element();
@@ -73,7 +74,7 @@ impl Render for Problems {
             .size_full()
             .overflow_y_scroll()
             .py_1()
-            .text_sm()
+            .text_size(px(13.))
             .children(rows.into_iter().enumerate().map(|(ix, (path, d))| {
                 let color = match d.severity {
                     Severity::Error => theme.danger,

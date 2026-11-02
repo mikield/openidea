@@ -24,7 +24,7 @@ pub mod keymap;
 pub mod layout;
 mod plugin;
 mod settings;
-mod skin;
+pub(crate) mod skin;
 mod status;
 pub mod theme;
 mod titlebar;
@@ -33,7 +33,7 @@ mod workbench;
 #[cfg(test)]
 mod workbench_tests;
 
-pub use actions::{ActionDef, ActionRun, RunAction};
+pub use actions::{ActionDef, ActionRun, HideToolWindow, MoveToolWindow, RunAction};
 pub use assets::Assets;
 pub use backend::Backend;
 pub use diagnostics::{DiagnosticsChanged, DiagnosticsStore};
@@ -44,6 +44,7 @@ pub use plugin::{
     Anchor, Extensions, Plugin, Services, SettingsPage, StatusAlign, StatusItem, TitleItem, ToolWindow, ViewBuilder,
 };
 pub use settings::{SettingsChanged, SettingsScope, SettingsStore};
+pub use skin::header_controls as tool_window_controls;
 pub use theme::{ThemeDef, ThemeKind};
 pub use workbench::{EDITOR_AREA, Workbench};
 

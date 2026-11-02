@@ -9,7 +9,7 @@ use crate::plugin::{Anchor, Extensions, Services, StatusAlign, ToolWindow, ViewB
 use crate::skin::Islands;
 use crate::titlebar::WorkbenchTitleBar;
 use crate::tool_window::ToolWindowPanel;
-use crate::{ActionDef, Icon, RunAction, SettingsChanged, keymap, theme};
+use crate::{ActionDef, HideToolWindow, Icon, MoveToolWindow, RunAction, SettingsChanged, keymap, theme};
 use gpui::prelude::FluentBuilder as _;
 use gpui::{
     AnyView, App, AppContext, ClickEvent, Context, DismissEvent, Entity, EventEmitter, FocusHandle, Focusable,
@@ -17,8 +17,8 @@ use gpui::{
     SharedString, StatefulInteractiveElement, Styled, Subscription, Task, Window, div, px,
 };
 use gpui_component::dock::{
-    BasePanelView, DockArea, DockEvent, DockLayout, DockPlacement, PaneRef, PanelId, PanelState, panel_handle,
-    register_panel,
+    BasePanelView, DockArea, DockEvent, DockLayout, DockPlacement, InsertTarget, PaneRef, PanelHandle, PanelId,
+    PanelState, panel_handle, register_panel,
 };
 use gpui_component::{h_flex, v_flex};
 use std::cell::RefCell;
@@ -108,8 +108,9 @@ impl Workbench {
     pub fn new(services: Services, layout: LayoutStore, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let panels = PanelIds::default();
         register_builders(&services, &panels, cx);
-        let dock =
-            cx.new(|cx| DockArea::new("workbench", Some(LAYOUT_VERSION), window, cx).with_renderer(Rc::new(Islands)));
+        let dock = cx.new(|cx| {
+            DockArea::new("workbench", Some(LAYOUT_VERSION), window, cx).with_renderer(Rc::new(Islands::default()))
+        });
         let subscriptions = vec![
             cx.subscribe(&dock, |this, _, event: &DockEvent, cx| {
                 if matches!(event, DockEvent::LayoutChanged) {
@@ -184,7 +185,12 @@ impl Workbench {
         let chosen = ext.theme(theme_id).or_else(|| ext.themes().first()).cloned();
         keymap::apply(&bindings, |id| actions.contains(id), cx);
         if let Some(chosen) = chosen {
-            theme::apply(&chosen, Some(&settings.appearance.accent), Some(window), cx);
+            let fonts = theme::Fonts::pick(
+                &cx.text_system().all_font_names(),
+                &settings.editor.font_family,
+                settings.editor.font_size,
+            );
+            theme::apply(&chosen, Some(&settings.appearance.accent), &fonts, Some(window), cx);
         }
     }
 
@@ -381,12 +387,82 @@ struct Stripe {
 /// `--stripe-button-w` is the hover area; the visible button is 32px, icons 20px.
 const STRIPE_WIDTH: f32 = 40.;
 
+/// A stripe button being dragged to another stripe.
+#[derive(Clone)]
+struct StripeDrag {
+    id: &'static str,
+    icon: SharedString,
+}
+
+impl Render for StripeDrag {
+    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        div()
+            .size(px(32.))
+            .flex()
+            .items_center()
+            .justify_center()
+            .rounded(px(6.))
+            .bg(theme::token(cx, "bg-stripe-selected"))
+            .child(Icon::new(self.icon.clone()).size(px(20.)))
+    }
+}
+
 impl Workbench {
+    /// Where the tool window `id` docks now (the user may have moved it), else its anchor.
+    fn current_anchor(&self, stripe: &Stripe, cx: &App) -> Anchor {
+        let Some(panel) = self.panels.borrow().get(stripe.id).copied() else { return stripe.anchor };
+        let area = self.dock.read(cx);
+        DOCKS
+            .iter()
+            .find(|(_, placement, _)| area.layout(*placement).is_some_and(|tree| tree.contains_panel(panel)))
+            .map_or(stripe.anchor, |(anchor, ..)| *anchor)
+    }
+
+    /// Moves the tool window `id` into the `to` dock (IDEA's "Move to"), showing it there.
+    pub fn move_tool_window(&mut self, id: &str, to: Anchor, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(panel) = self.panels.borrow().get(id).copied() else { return };
+        let (_, placement, size) = DOCKS.into_iter().find(|(a, ..)| *a == to).expect("every anchor");
+        self.dock.update(cx, |area, cx| {
+            let target = area.layout(placement).and_then(|tree| {
+                let first = tree.panels().next()?;
+                tree.find_panel_node(first)
+            });
+            match target {
+                Some(node) => area.move_panel(panel, InsertTarget::Tabs { node, ix: None, activate: true }, window, cx),
+                // An empty dock: take the panel out and start the dock with it.
+                None => {
+                    let Some(entity) = area
+                        .panel(panel)
+                        .and_then(|p| PanelHandle::of(p).map(|h| h.view()))
+                        .and_then(|view| view.downcast::<ToolWindowPanel>().ok())
+                    else {
+                        return;
+                    };
+                    area.remove_panel(entity.clone(), window, cx);
+                    area.add_panel_view(panel_handle(entity), placement, Some(size), window, cx);
+                }
+            }
+            if !area.is_dock_open(placement) {
+                area.toggle_dock(placement, window, cx);
+            }
+            area.select_panel(panel, window, cx);
+        });
+        cx.notify();
+    }
+
+    /// Hides the tool window `id` (IDEA's "Hide"): closes the dock showing it.
+    pub fn hide_tool_window(&mut self, id: &str, window: &mut Window, cx: &mut Context<Self>) {
+        if self.is_tool_window_visible(id, cx) {
+            self.toggle_tool_window(id, window, cx);
+        }
+    }
+
     fn stripe_button(&self, stripe: &Stripe, cx: &mut Context<Self>) -> gpui::Stateful<gpui::Div> {
         let visible = self.is_tool_window_visible(stripe.id, cx);
         let (selected, hover) = (theme::token(cx, "bg-stripe-selected"), theme::token(cx, "bg-stripe-hover"));
         let id = stripe.id;
         let title = stripe.title.clone();
+        let drag = StripeDrag { id, icon: stripe.icon.clone() };
         div()
             .id(SharedString::from(format!("stripe-{id}")))
             .size(px(32.))
@@ -402,37 +478,63 @@ impl Workbench {
                 wb.toggle_tool_window(id, window, cx);
                 cx.notify();
             }))
+            .on_drag(drag, |drag, _, _, cx| cx.new(|_| drag.clone()))
+    }
+
+    /// A part of a stripe that takes dropped stripe buttons: they move to `anchor`.
+    fn stripe_zone(&self, stripes: &[Stripe], anchor: Anchor, grow: bool, cx: &mut Context<Self>) -> gpui::Div {
+        let accent = theme::token(cx, "accent-soft");
+        v_flex()
+            .w_full()
+            .items_center()
+            .gap(px(4.))
+            .rounded(px(6.))
+            .when(grow, |z| z.flex_1())
+            .min_h(px(32.))
+            .children(stripes.iter().map(|s| self.stripe_button(s, cx)).collect::<Vec<_>>())
+            .drag_over::<StripeDrag>(move |z, _, _, _| z.bg(accent))
+            .on_drop(
+                cx.listener(move |wb, drag: &StripeDrag, window, cx| wb.move_tool_window(drag.id, anchor, window, cx)),
+            )
     }
 
     /// A vertical stripe: `top` buttons, then `bottom` ones pushed to the end.
-    fn stripe(&self, top: &[Stripe], bottom: &[Stripe], cx: &mut Context<Self>) -> gpui::Div {
+    fn stripe(
+        &self,
+        (top, top_anchor): (&[Stripe], Anchor),
+        bottom: Option<(&[Stripe], Anchor)>,
+        cx: &mut Context<Self>,
+    ) -> gpui::Div {
         v_flex()
             .w(px(STRIPE_WIDTH))
             .flex_none()
             .h_full()
             .items_center()
-            .py(px(4.))
+            .p(px(4.))
             .gap(px(4.))
-            .children(top.iter().map(|s| self.stripe_button(s, cx)).collect::<Vec<_>>())
-            .child(div().flex_1())
-            .children(bottom.iter().map(|s| self.stripe_button(s, cx)).collect::<Vec<_>>())
+            .child(self.stripe_zone(top, top_anchor, true, cx))
+            .children(bottom.map(|(stripes, anchor)| self.stripe_zone(stripes, anchor, false, cx)))
     }
 }
 
 impl Render for Workbench {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let at = |anchor: Anchor| self.stripes.iter().filter(|s| s.anchor == anchor).cloned().collect::<Vec<_>>();
+        let anchors: Vec<(Stripe, Anchor)> =
+            self.stripes.iter().map(|s| (s.clone(), self.current_anchor(s, cx))).collect();
+        let at =
+            |anchor: Anchor| anchors.iter().filter(|(_, a)| *a == anchor).map(|(s, _)| s.clone()).collect::<Vec<_>>();
         let (left, right, bottom) = (at(Anchor::Left), at(Anchor::Right), at(Anchor::Bottom));
-        // IDEA's left stripe holds the left tool windows on top and the bottom ones below.
-        let left_stripe = self.stripe(&left, &bottom, cx);
-        let right_stripe = (!right.is_empty()).then(|| self.stripe(&right, &[], cx));
+        // IDEA's left stripe holds the left tool windows on top and the bottom ones below;
+        // the right stripe is always there, to drop buttons on.
+        let left_stripe = self.stripe((&left, Anchor::Left), Some((&bottom, Anchor::Bottom)), cx);
+        let right_stripe = self.stripe((&right, Anchor::Right), None, cx);
         let project = self.services.backend.read(cx).project().name.clone();
         let status = h_flex()
             .h(px(30.))
             .flex_none()
             .px(px(12.))
             .gap(px(16.))
-            .text_xs()
+            .text_size(px(12.))
             .text_color(theme::token(cx, "fg-secondary"))
             .children(self.status_left.iter().cloned())
             .child(div().flex_1())
@@ -445,6 +547,8 @@ impl Render for Workbench {
             .key_context("Workbench")
             .track_focus(&self.focus)
             .on_action(cx.listener(Self::on_run_action))
+            .on_action(cx.listener(|wb, a: &MoveToolWindow, window, cx| wb.move_tool_window(&a.id, a.to, window, cx)))
+            .on_action(cx.listener(|wb, a: &HideToolWindow, window, cx| wb.hide_tool_window(&a.id, window, cx)))
             .on_modifiers_changed(cx.listener(Self::on_modifiers_changed))
             .capture_key_down(cx.listener(|wb, _: &KeyDownEvent, _, _| wb.taps.key_pressed()))
             .child(WorkbenchTitleBar {
@@ -458,8 +562,7 @@ impl Render for Workbench {
                     .min_h_0()
                     .child(left_stripe)
                     .child(div().flex_1().min_w_0().h_full().child(self.dock.clone()))
-                    .children(right_stripe)
-                    .when(right.is_empty(), |row| row.pr(px(3.))),
+                    .child(right_stripe),
             )
             .child(status)
             .children(self.overlay.as_ref().map(|(view, _)| {
@@ -532,7 +635,7 @@ fn build_tool_window(
     cx: &mut App,
 ) -> Arc<dyn BasePanelView> {
     let content = (tool_window.build)(services, window, cx);
-    build_panel(tool_window.id, tool_window.title.clone(), true, content, panels, cx)
+    build_panel(tool_window.id, tool_window.title.clone(), !tool_window.own_header, content, panels, cx)
 }
 
 fn build_editor_area(
