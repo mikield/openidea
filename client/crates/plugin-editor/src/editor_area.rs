@@ -154,6 +154,8 @@ impl EditorArea {
         let read_only = info.read_only;
         let editor = cx.new(|cx| {
             let mut state = EditorState::new(window, cx).language(language);
+            // React's first line sits 4px below the tab strip.
+            state.set_editor_paddings(gpui::Edges { top: px(4.), ..Default::default() });
             state.set_value(info.text.clone(), window, cx);
             state.set_readonly(read_only, cx);
             let lsp = state.lsp_mut();
@@ -182,7 +184,7 @@ impl EditorArea {
                 open.sync.edit(editor.read(cx).value().to_string());
             }
         });
-        self.note = format!("{} · {}", info.language, if read_only { "read-only" } else { "editable" }).into();
+        self.note = SharedString::default();
         // New tabs open right of the current one, like IDEA.
         let at = if self.docs.is_empty() { 0 } else { self.active + 1 };
         self.docs.insert(
@@ -477,24 +479,25 @@ impl EditorArea {
         let active = ix == self.active;
         let name = open.path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
         let (hover, fg_muted) = (token(cx, "bg-tab-hover"), token(cx, "fg-muted"));
+        // React's `.tab`: 28px, 6px corners; the button 10px left, a 14px icon 6px before the label,
+        // then a 20px close slot.
         h_flex()
             .id(("editor-tab", ix))
+            .flex_none()
             .h(px(28.))
-            .pl(px(8.))
-            .pr(px(4.))
+            .pl(px(10.))
             .gap(px(6.))
             .rounded(px(6.))
-            .border_1()
-            .border_color(gpui::transparent_black())
-            .when(active, |t| t.bg(token(cx, "bg-tab-selected")).border_color(token(cx, "border-tab-selected")))
+            .when(active, |t| t.bg(token(cx, "bg-tab-selected")))
             .when(!active, |t| t.hover(move |t| t.bg(hover)))
-            .child(Icon::new(file_icon_name(&name)).size(px(16.)))
+            .child(Icon::new(file_icon_name(&name)).size(px(14.)))
             .child(name)
             .when(open.read_only, |t| t.child(div().text_color(fg_muted).child("read-only")))
             .child(
                 div()
                     .id(("close-tab", ix))
-                    .size(px(16.))
+                    .ml(px(-4.))
+                    .size(px(20.))
                     .rounded(px(4.))
                     .flex()
                     .items_center()
@@ -576,12 +579,15 @@ impl Render for EditorArea {
         v_flex()
             .size_full()
             .child(
+                // React's tab strip: 40px, 4px padding, tabs 2px apart, a 1px line below.
                 h_flex()
                     .id("editor-tabs")
-                    .h(px(38.))
+                    .h(px(40.))
                     .flex_none()
-                    .px(px(6.))
+                    .px(px(4.))
                     .gap(px(2.))
+                    .border_b_1()
+                    .border_color(token(cx, "border-editor-tabs"))
                     .text_size(px(13.))
                     .overflow_x_scroll()
                     .children(tabs)
@@ -594,7 +600,8 @@ impl Render for EditorArea {
                     .relative()
                     .flex_1()
                     .min_h_0()
-                    .child(Editor::new(&editor).bordered(false).h(relative(1.)))
+                    // React's `.cm-scroller`: 22px lines.
+                    .child(Editor::new(&editor).bordered(false).h(relative(1.)).line_height(px(22.)))
                     .children(self.rename_prompt(cx)),
             )
     }

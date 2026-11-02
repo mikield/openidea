@@ -297,7 +297,10 @@ Screens compared with React by computed styles and side-by-side screenshots (lig
 | Tool window header | `ToolWindows.module.css` (`.header`, `.titleButton`) | matches: title + chevron, actions on hover | the title's view menu |
 | Project tree rows | `src/ui/Tree`, `src/features/project` | matches: 24px rows, 20px indent, icon + label 5px apart | excluded-folder tint |
 | Editor empty state | `src/workbench/EditorArea` | matches | drop target |
-| Editor, tabs, Find Usages, Rename prompt, Search Everywhere, Settings, Terminal | — | not compared yet | — |
+| Editor tabs | `src/workbench/editor` (`.strip`, `.tab`) | matches: 40px strip with a 1px line, 28px tabs, 14px icon, 20px close slot, no border | Split Right, Tab Actions buttons |
+| Editor text | `src/editor/core` (CodeMirror theme) | matches: JetBrains Mono 13 / 22px lines, 4px top padding, Islands syntax colours, grey inactive tree selection | **gutter**: React's is 98px (line numbers 34, bookmarks, run and Spring lanes, change lane, folding, a 1px border, text 6px after it); gpui-component's width is fixed (digits + fold icon) with no API for lanes — needs the `input` fork (editor gate option B) |
+| Status bar in an editor | `src/workbench/statusbar` | position only | breadcrumbs, LF, UTF-8, indent, Vim widgets |
+| Find Usages, Rename prompt, Search Everywhere, Settings, Terminal | — | not compared yet | — |
 
 Fonts: `client-core/fonts` bundles Inter 4.1 (Regular, Medium, SemiBold, Bold) and JetBrains Mono
 2.304 (Regular, Italic, Bold, BoldItalic), OFL, registered at start (`register_fonts`); GPUI

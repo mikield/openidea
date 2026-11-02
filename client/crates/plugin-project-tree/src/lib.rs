@@ -232,7 +232,8 @@ impl ProjectTree {
 impl Render for ProjectTree {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let active = self.editors.read(cx).active().map(Path::to_path_buf);
-        let (hover, selected) = (token(cx, "bg-tree-hover"), token(cx, "bg-tree-selected"));
+        // The open file is selected while the editor has the focus: React's inactive selection.
+        let (hover, selected) = (token(cx, "bg-tree-hover"), token(cx, "bg-tree-selected-inactive"));
         let (muted, danger, chevron) = (token(cx, "fg-muted"), token(cx, "danger"), token(cx, "fg-icon"));
         let root_open = self.expanded.contains(&self.root);
         // The root node: module icon, project name, its path (React's project view).
