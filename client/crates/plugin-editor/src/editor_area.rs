@@ -1,5 +1,5 @@
-//! The editor area: one open document (no tabs yet) synced with the backend,
-//! with completion and the problems the backend reports for it.
+//! The editor area: open documents as tabs, each synced with the backend, with
+//! completion and the problems the backend reports for it.
 
 use crate::completion::ServerCompletions;
 use crate::doc_sync::DocSync;
@@ -9,9 +9,10 @@ use client_core::theme::token;
 use client_core::{DiagnosticsChanged, DiagnosticsStore, EditorEvent, Editors, Icon, Services};
 use client_rpc::proto::DocumentInfo;
 use client_rpc::{Connection, text};
+use gpui::prelude::FluentBuilder as _;
 use gpui::{
-    App, AppContext, Context, Entity, IntoElement, ParentElement, Render, SharedString, Styled, Subscription, Window,
-    div, px, relative,
+    App, AppContext, ClickEvent, Context, Entity, InteractiveElement, IntoElement, MouseButton, ParentElement, Render,
+    SharedString, StatefulInteractiveElement, Styled, Subscription, Window, div, px, relative,
 };
 use gpui_component::highlighter::{Diagnostic as EditorDiagnostic, DiagnosticSeverity};
 use gpui_component::input::{Editor, EditorState, InputEvent, Position};
@@ -27,8 +28,9 @@ pub struct EditorArea {
     rt: Handle,
     editors: Entity<Editors>,
     diagnostics: Entity<DiagnosticsStore>,
-    open: Option<OpenDoc>,
-    /// What happened last (opening, saved, failed), shown beside the file name.
+    docs: Vec<OpenDoc>,
+    active: usize,
+    /// What happened last (opening, saved, failed), shown beside the tabs.
     note: SharedString,
     _subscriptions: Vec<Subscription>,
 }
@@ -40,6 +42,22 @@ struct OpenDoc {
     dirty: bool,
     read_only: bool,
     _changes: Subscription,
+}
+
+/// The tab to show after closing tab `closed` of `len` while `active` was shown:
+/// the same document if it survives, else its left neighbour (IDEA: "activate left").
+fn after_close(active: usize, closed: usize, len: usize) -> Option<usize> {
+    let remaining = len.checked_sub(1).filter(|n| *n > 0)?;
+    Some(match active.cmp(&closed) {
+        std::cmp::Ordering::Less => active,
+        std::cmp::Ordering::Greater => active - 1,
+        std::cmp::Ordering::Equal => closed.saturating_sub(1).min(remaining - 1),
+    })
+}
+
+/// The tab `delta` away from `active`, wrapping around.
+fn cycle(active: usize, len: usize, delta: isize) -> usize {
+    (active as isize + delta).rem_euclid(len.max(1) as isize) as usize
 }
 
 impl EditorArea {
@@ -55,7 +73,7 @@ impl EditorArea {
             }),
             cx.subscribe(&services.backend, |this, _, event: &IdeEvent, cx| {
                 if let IdeEvent::DocDirty { doc, dirty } = event
-                    && let Some(open) = this.open.as_mut().filter(|o| o.sync.doc == *doc)
+                    && let Some(open) = this.docs.iter_mut().find(|o| o.sync.doc == *doc)
                 {
                     open.dirty = *dirty;
                     cx.notify();
@@ -68,15 +86,16 @@ impl EditorArea {
             rt: backend.runtime().clone(),
             editors: services.editors.clone(),
             diagnostics: services.diagnostics.clone(),
-            open: None,
+            docs: Vec::new(),
+            active: 0,
             note: SharedString::default(),
             _subscriptions: subscriptions,
         }
     }
 
     pub fn open_file(&mut self, path: PathBuf, window: &mut Window, cx: &mut Context<Self>) {
-        if self.open.as_ref().is_some_and(|o| o.path == path) {
-            return;
+        if let Some(ix) = self.docs.iter().position(|o| o.path == path) {
+            return self.activate(ix, window, cx);
         }
         let fut = self.conn.doc_open(&path);
         self.note = format!("Opening {}…", path.display()).into();
@@ -95,6 +114,11 @@ impl EditorArea {
     }
 
     fn show_doc(&mut self, info: DocumentInfo, window: &mut Window, cx: &mut Context<Self>) {
+        let path = info.path.0.clone();
+        // Opened twice while the first request was in flight.
+        if let Some(ix) = self.docs.iter().position(|o| o.path == path) {
+            return self.activate(ix, window, cx);
+        }
         let sync = DocSync::start(self.conn.clone(), &self.rt, &info);
         let language = info.language.clone();
         let read_only = info.read_only;
@@ -105,23 +129,63 @@ impl EditorArea {
             state.lsp_mut().completion_provider = Some(Rc::new(ServerCompletions { sync: sync.clone() }));
             state
         });
-        let changes = cx.subscribe_in(&editor, window, |area, editor, event: &InputEvent, _window, cx| {
-            if let (InputEvent::Change, Some(open)) = (event, &area.open) {
+        let doc = info.id;
+        let changes = cx.subscribe_in(&editor, window, move |area, editor, event: &InputEvent, _window, cx| {
+            if let (InputEvent::Change, Some(open)) = (event, area.docs.iter().find(|o| o.sync.doc == doc)) {
                 open.sync.edit(editor.read(cx).value().to_string());
             }
         });
-        editor.update(cx, |state, cx| state.focus(window, cx));
-        let path = info.path.0.clone();
         self.note = format!("{} · {}", info.language, if read_only { "read-only" } else { "editable" }).into();
-        self.open = Some(OpenDoc { path: path.clone(), sync, editor, dirty: info.dirty, read_only, _changes: changes });
-        self.editors.update(cx, |editors, cx| editors.set_active(Some(path.clone()), cx));
+        // New tabs open right of the current one, like IDEA.
+        let at = if self.docs.is_empty() { 0 } else { self.active + 1 };
+        self.docs
+            .insert(at, OpenDoc { path: path.clone(), sync, editor, dirty: info.dirty, read_only, _changes: changes });
         self.push_diagnostics(&path, cx);
+        self.activate(at, window, cx);
+    }
+
+    fn activate(&mut self, ix: usize, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(open) = self.docs.get(ix) else { return };
+        self.active = ix;
+        open.editor.update(cx, |state, cx| state.focus(window, cx));
+        let path = open.path.clone();
+        self.editors.update(cx, |editors, cx| editors.set_active(Some(path), cx));
         cx.notify();
     }
 
-    /// Saves the open document (the `file.save` action).
+    /// Closes tab `ix`; dropping its sync closes the document on the backend.
+    pub fn close(&mut self, ix: usize, window: &mut Window, cx: &mut Context<Self>) {
+        if ix >= self.docs.len() {
+            return;
+        }
+        let next = after_close(self.active, ix, self.docs.len());
+        self.docs.remove(ix);
+        match next {
+            Some(next) => self.activate(next, window, cx),
+            None => {
+                self.active = 0;
+                self.note = SharedString::default();
+                self.editors.update(cx, |editors, cx| editors.set_active(None, cx));
+                cx.notify();
+            }
+        }
+    }
+
+    /// `editor.closeTab`.
+    pub fn close_active(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.close(self.active, window, cx);
+    }
+
+    /// `editor.nextTab` / `editor.prevTab`.
+    pub fn cycle(&mut self, delta: isize, window: &mut Window, cx: &mut Context<Self>) {
+        if !self.docs.is_empty() {
+            self.activate(cycle(self.active, self.docs.len(), delta), window, cx);
+        }
+    }
+
+    /// Saves the active document (the `file.save` action).
     pub fn save(&mut self, cx: &mut Context<Self>) {
-        let Some(open) = &self.open else { return };
+        let Some(open) = self.docs.get(self.active) else { return };
         let fut = open.sync.save();
         cx.spawn(async move |this, cx| {
             let result = fut.await;
@@ -136,9 +200,9 @@ impl EditorArea {
         .detach();
     }
 
-    /// Shows the problems of `path` in its editor, if it is the open one.
+    /// Shows the problems of `path` in its editor, if it is open.
     fn push_diagnostics(&mut self, path: &Path, cx: &mut Context<Self>) {
-        let Some(open) = self.open.as_ref().filter(|o| o.path == path) else { return };
+        let Some(open) = self.docs.iter().find(|o| o.path == path) else { return };
         // In range order: the editor keeps them in a sum tree queried by visible range.
         let items = self.diagnostics.read(cx).problems().for_path(path);
         open.editor.update(cx, |state, cx| {
@@ -160,6 +224,47 @@ impl EditorArea {
             // Painting caches line styles until the next layout pass: request one.
             state.refresh(cx);
         });
+    }
+
+    fn tab(&self, ix: usize, cx: &mut Context<Self>) -> gpui::Stateful<gpui::Div> {
+        let open = &self.docs[ix];
+        let active = ix == self.active;
+        let name = open.path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+        let (hover, fg_muted) = (token(cx, "bg-tab-hover"), token(cx, "fg-muted"));
+        h_flex()
+            .id(("editor-tab", ix))
+            .h(px(28.))
+            .pl(px(8.))
+            .pr(px(4.))
+            .gap(px(6.))
+            .rounded(px(6.))
+            .border_1()
+            .border_color(gpui::transparent_black())
+            .when(active, |t| t.bg(token(cx, "bg-tab-selected")).border_color(token(cx, "border-tab-selected")))
+            .when(!active, |t| t.hover(move |t| t.bg(hover)))
+            .child(Icon::new(file_icon_name(&name)).size(px(16.)))
+            .child(name)
+            .when(open.read_only, |t| t.child(div().text_color(fg_muted).child("read-only")))
+            .child(
+                div()
+                    .id(("close-tab", ix))
+                    .size(px(16.))
+                    .rounded(px(4.))
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .text_xs()
+                    .text_color(fg_muted)
+                    .hover(move |b| b.bg(hover))
+                    // A modified document shows a dot until hovered, like IDEA.
+                    .child(if open.dirty { "●" } else { "✕" })
+                    .on_click(cx.listener(move |area, _: &ClickEvent, window, cx| {
+                        cx.stop_propagation();
+                        area.close(ix, window, cx);
+                    })),
+            )
+            .on_click(cx.listener(move |area, _: &ClickEvent, window, cx| area.activate(ix, window, cx)))
+            .on_mouse_down(MouseButton::Middle, cx.listener(move |area, _, window, cx| area.close(ix, window, cx)))
     }
 }
 
@@ -209,38 +314,46 @@ fn empty_hints(cx: &App) -> gpui::Div {
 
 impl Render for EditorArea {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let Some(open) = &self.open else {
+        let Some(open) = self.docs.get(self.active) else {
             return v_flex().size_full().child(empty_hints(cx));
         };
-        let name = open.path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-        let flags = match (open.dirty, open.read_only) {
-            (_, true) => " (read-only)",
-            (true, _) => " ●",
-            _ => "",
-        };
-        // One tab for now (`--h-tabbar`, `--radius-tab`, the selected tab colours).
-        let tab = h_flex()
-            .h(px(28.))
-            .px(px(8.))
-            .gap(px(6.))
-            .rounded(px(6.))
-            .bg(token(cx, "bg-tab-selected"))
-            .border_1()
-            .border_color(token(cx, "border-tab-selected"))
-            .child(Icon::new(file_icon_name(&name)).size(px(16.)))
-            .child(format!("{name}{flags}"));
+        let editor = open.editor.clone();
+        let tabs: Vec<_> = (0..self.docs.len()).map(|ix| self.tab(ix, cx)).collect();
         v_flex()
             .size_full()
             .child(
                 h_flex()
+                    .id("editor-tabs")
                     .h(px(38.))
                     .flex_none()
-                    .px(px(8.))
-                    .gap(px(12.))
+                    .px(px(6.))
+                    .gap(px(2.))
                     .text_sm()
-                    .child(tab)
-                    .child(div().text_xs().text_color(token(cx, "fg-subtle")).child(self.note.clone())),
+                    .overflow_x_scroll()
+                    .children(tabs)
+                    .child(div().pl(px(8.)).text_xs().text_color(token(cx, "fg-subtle")).child(self.note.clone())),
             )
-            .child(div().flex_1().min_h_0().child(Editor::new(&open.editor).bordered(false).h(relative(1.))))
+            .child(div().flex_1().min_h_0().child(Editor::new(&editor).bordered(false).h(relative(1.))))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn closing_a_tab_shows_its_left_neighbour_or_keeps_the_current_one() {
+        assert_eq!(after_close(2, 2, 4), Some(1), "the shown tab closes: its left neighbour");
+        assert_eq!(after_close(0, 0, 3), Some(0), "the first closes: the new first");
+        assert_eq!(after_close(1, 3, 4), Some(1), "another tab closes: keep the shown one");
+        assert_eq!(after_close(3, 1, 4), Some(2), "a tab to its left closes: it shifts left");
+        assert_eq!(after_close(0, 0, 1), None, "the last tab closes");
+    }
+
+    #[test]
+    fn tab_cycling_wraps() {
+        assert_eq!(cycle(0, 3, -1), 2);
+        assert_eq!(cycle(2, 3, 1), 0);
+        assert_eq!(cycle(1, 3, 1), 2);
     }
 }

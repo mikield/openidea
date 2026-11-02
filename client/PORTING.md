@@ -132,9 +132,20 @@ is GPL: never copy from it.
    - Project tree: root node (module icon, name, path), chevrons, file-type icons, React row
      metrics; editor: a tab with the file icon; empty editor: React's hints with this keymap's
      keys (`keymap::shortcut_label`).
+   - Editor tabs (`plugin-editor`): several documents, IDEA's "activate left" on close,
+     `editor.closeTab` / `editor.nextTab` / `editor.prevTab`, middle-click close, the dirty dot.
+   - Terminal (`plugin-terminal`, Alt+F12): `alacritty_terminal` (Apache-2.0) parses the PTY
+     output; our own GPUI grid in the theme's ANSI colours; keys encoded to VT sequences,
+     bracketed paste (Ctrl+Shift+V), scrollback; `term_spawn` / `term_write` / `term_resize` in
+     one ordered queue; the terminal's replies to queries (conpty's DSR) go back to the PTY.
+     Tabs "Local", "Local (2)"…; an end-to-end test runs a real shell on `oi-server`.
+     Not yet: selection / copy, mouse reporting, shell choice, terminal settings.
    - Still missing against React: folder roles (source / test / resources icons need
      `project_roots`), main menu, run configuration and search / settings in the title bar,
-     right status items (Vim, interpreter, memory), editor tabs (several documents), Terminal.
+     right status items (Vim, interpreter, memory), editor tab overflow / pinning / splits.
+   - Reference for IDEA behaviour where the React port is silent: OpenIDE
+     (gitflic.ru/project/openide/openide, an IntelliJ Community fork, Apache-2.0); the React
+     code stays the spec.
 
 ## Gotchas found in the spike
 
@@ -196,6 +207,7 @@ Headless check (Linux, agents and CI): `client/scripts/headless-shot.sh PROJECT 
 | --- | --- | --- | --- |
 | project-tree | plugin-project-tree | 4015a5b (spike behaviour, not yet `src/features/project`) | basic |
 | problems | plugin-problems | 4015a5b (spike behaviour) | basic |
-| editor (basic) | plugin-editor | 4015a5b (spike behaviour) | basic, one document |
+| editor (basic) | plugin-editor | 4015a5b (spike behaviour) | tabs, no splits |
+| terminal | plugin-terminal | 4015a5b (`src/features/terminal`, behaviour) | basic: no selection, no settings |
 | keymaps (6 presets) | plugin-presets | 87bf89d (`src/platform/keymaps`) | data, re-export with the script |
 | themes (7 built-in) | plugin-presets | 2c9a647 (`tokens.css`, `themes.ts`) | data, re-export with the script |

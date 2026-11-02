@@ -40,5 +40,24 @@ impl Plugin for EditorPlugin {
             })
             .category("File"),
         );
+
+        for (id, title, step) in [
+            ("editor.closeTab", "Close Tab", 0isize),
+            ("editor.nextTab", "Select Next Tab", 1),
+            ("editor.prevTab", "Select Previous Tab", -1),
+        ] {
+            let current = self.current.clone();
+            ext.add_action(
+                ActionDef::new(id, title, move |_, window, cx| {
+                    if let Some(area) = current.borrow().as_ref().and_then(WeakEntity::upgrade) {
+                        area.update(cx, |area, cx| match step {
+                            0 => area.close_active(window, cx),
+                            step => area.cycle(step, window, cx),
+                        });
+                    }
+                })
+                .category("Window"),
+            );
+        }
     }
 }

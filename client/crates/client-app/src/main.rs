@@ -1,4 +1,4 @@
-//! `openidea-gpui [PROJECT_DIR] [--open RELATIVE_FILE]`
+//! `openidea-gpui [PROJECT_DIR] [--open RELATIVE_FILE]...`
 //!
 //! Phase-0 spike: a GPUI client of `oi-server` (upstream's backend plus our
 //! commands). Even locally the client spawns the server and speaks the remote
@@ -19,10 +19,10 @@ fn main() -> anyhow::Result<()> {
         .init();
 
     let mut args = std::env::args().skip(1);
-    let (mut project, mut open) = (None, None);
+    let (mut project, mut open) = (None, Vec::new());
     while let Some(arg) = args.next() {
         match arg.as_str() {
-            "--open" => open = args.next().map(PathBuf::from),
+            "--open" => open.extend(args.next().map(PathBuf::from)),
             _ => project = Some(PathBuf::from(arg)),
         }
     }
@@ -44,7 +44,7 @@ fn main() -> anyhow::Result<()> {
         .map_err(|e| anyhow::anyhow!("{}: {}", server.describe(), e.message))?;
     tracing::info!("connected to {} in {:?}", server.describe(), started.elapsed());
     let handle = rt.handle().clone();
-    let open = open.map(|file| project.root.0.join(file));
+    let open: Vec<PathBuf> = open.into_iter().map(|file| project.root.0.join(file)).collect();
     let layout = LayoutStore::for_project(&project.root.0);
 
     gpui_platform::application().with_assets(client_core::Assets).run(move |cx| {
@@ -56,6 +56,7 @@ fn main() -> anyhow::Result<()> {
             Box::new(plugin_project_tree::ProjectTreePlugin),
             Box::new(plugin_problems::ProblemsPlugin),
             Box::new(plugin_vcs::VcsPlugin),
+            Box::new(plugin_terminal::TerminalPlugin),
         ];
         client_core::activate(&plugins, cx);
 
@@ -75,7 +76,7 @@ fn main() -> anyhow::Result<()> {
             cx.new(|cx| Root::new(workbench, window, cx))
         })
         .expect("open window");
-        if let Some(file) = open {
+        for file in open {
             editors.update(cx, |editors, cx| editors.open(file, cx));
         }
         cx.activate(true);
