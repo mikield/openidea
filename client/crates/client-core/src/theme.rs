@@ -258,8 +258,33 @@ pub fn theme_config(theme: &ThemeDef, accent: Option<&str>) -> ThemeConfig {
     })
 }
 
+/// The current theme, for what gpui-component's colours do not cover (the Islands frame,
+/// tool window stripes): read through [`token`].
+struct Current(Rc<ThemeDef>);
+
+impl gpui::Global for Current {}
+
+/// A colour token of the current theme (`bg-frame`, `bg-stripe-selected`…); transparent when unknown.
+pub fn token(cx: &App, name: &str) -> gpui::Hsla {
+    cx.try_global::<Current>()
+        .and_then(|t| t.0.token(name))
+        .and_then(|v| gpui::Rgba::try_from(v).ok())
+        .map(gpui::Hsla::from)
+        .unwrap_or_else(gpui::transparent_black)
+}
+
+/// Whether the current theme is dark (no theme yet counts as dark, like Islands Dark's `:root`).
+pub fn is_dark(cx: &App) -> bool {
+    cx.try_global::<Current>().is_none_or(|t| t.0.kind == ThemeKind::Dark)
+}
+
 /// Makes `theme` the current one.
 pub fn apply(theme: &ThemeDef, accent: Option<&str>, window: Option<&mut Window>, cx: &mut App) {
+    let mut current = theme.clone();
+    if let Some(accent) = accent.filter(|a| is_color(a) && !THEME_ACCENTS.contains(&a.to_ascii_lowercase().as_str())) {
+        current.tokens.insert("accent".into(), accent.to_owned());
+    }
+    cx.set_global(Current(Rc::new(current)));
     let config = theme_config(theme, accent);
     let mode = config.mode;
     Theme::global_mut(cx).apply_config(&Rc::new(config));

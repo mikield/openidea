@@ -116,7 +116,25 @@ is GPL: never copy from it.
      task status bar items are the core's own `StatusItem`s.
    - The wave 1 gate's "3 plugins built only on extension points" holds (editor, project
      tree, problems); a saved layout without them gets them added to their docks.
-6. `client.yml` CI green on macOS, Windows and Linux.
+6. `client.yml` CI green on macOS, Windows and Linux. (Postponed by the owner: parity first.)
+7. ~~The window looks like the React IDE~~ — done (compared against the running React app):
+   - Islands skin (`client_core::skin`, our own `DockAreaRenderer` / `TabGroupRenderer` over
+     gpui-base): rounded islands on `bg-frame`, `--island-gap`, a bold tool window header
+     (tabs when an island holds several), no divider lines.
+   - Tool window stripes: left (left tool windows on top, bottom ones below), right; icon
+     buttons with tooltips; `ToolWindow.icon` uses React's icon names.
+   - Frameless title bar: project avatar (React's `projectColorIndex` / `projectInitials`) and
+     name, `TitleItem` contributions (`plugin-vcs`: the branch via `vcs_branch_info`), window
+     controls.
+   - Icons: upstream's expui / openidea SVGs served from `src/ui/` (`rust-embed`, read-only),
+     the name and file-type tables exported from `src/ui/icons.tsx`; `client_core::Icon`
+     draws monochrome icons in the text colour, coloured ones in their light / `_dark` variant.
+   - Project tree: root node (module icon, name, path), chevrons, file-type icons, React row
+     metrics; editor: a tab with the file icon; empty editor: React's hints with this keymap's
+     keys (`keymap::shortcut_label`).
+   - Still missing against React: folder roles (source / test / resources icons need
+     `project_roots`), main menu, run configuration and search / settings in the title bar,
+     right status items (Vim, interpreter, memory), editor tabs (several documents), Terminal.
 
 ## Gotchas found in the spike
 
@@ -136,6 +154,8 @@ is GPL: never copy from it.
 - **GPUI tests:** `#[gpui::test]` with `TestAppContext::add_window_view` works headless on every
   OS (`gpui` dev-dependency with `test-support`). Anything awaiting the tokio-side connection
   needs `cx.executor().allow_parking()`, else the test scheduler reports non-determinism.
+- **Dock renderer types:** `ResizeHandleContext` is not re-exported by gpui-component;
+  `gpui-base` is a direct dependency pinned with it (`=0.8.1`).
 - **gpui-component highlight keys:** built with `syntect` (no `tree-sitter`), it compiles
   `highlighter/wasm_stub.rs`, where the editor colours are `editor_background`…; with
   `tree-sitter` they are `editor.background`…. `theme_config` writes both spellings.

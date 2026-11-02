@@ -1190,7 +1190,6 @@ dependencies = [
  "client-core",
  "client-rpc",
  "gpui-component",
- "gpui-kit-assets",
  "gpui-pre",
  "gpui-pre-platform",
  "ide-core",
@@ -1198,6 +1197,7 @@ dependencies = [
  "plugin-presets",
  "plugin-problems",
  "plugin-project-tree",
+ "plugin-vcs",
  "tokio",
  "tracing",
  "tracing-subscriber",
@@ -1207,12 +1207,17 @@ dependencies = [
 name = "client-core"
 version = "0.0.1"
 dependencies = [
+ "anyhow",
  "client-rpc",
  "dirs 6.0.0",
+ "gpui-base",
  "gpui-component",
+ "gpui-kit-assets",
  "gpui-pre",
  "ide-core",
  "ide-jsonrpc",
+ "regex",
+ "rust-embed",
  "serde",
  "serde_json",
  "tempfile",
@@ -7476,6 +7481,20 @@ dependencies = [
  "gpui-pre",
  "ide-core",
  "serde_json",
+]
+
+[[package]]
+name = "plugin-vcs"
+version = "0.0.1"
+dependencies = [
+ "client-core",
+ "client-rpc",
+ "gpui-component",
+ "gpui-pre",
+ "ide-core",
+ "serde",
+ "serde_json",
+ "tracing",
 ]
 
 [[package]]

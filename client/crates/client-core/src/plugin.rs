@@ -55,6 +55,8 @@ pub struct ToolWindow {
     /// Stable id; also the panel name its layout is saved under.
     pub id: &'static str,
     pub title: SharedString,
+    /// Icon name (`toolwindow-project`), shown on the tool window stripe.
+    pub icon: SharedString,
     pub anchor: Anchor,
     /// Order within its anchor; lower first.
     pub order: i32,
@@ -70,6 +72,16 @@ pub enum StatusAlign {
 /// A status bar widget.
 #[derive(Clone)]
 pub struct StatusItem {
+    pub id: &'static str,
+    pub align: StatusAlign,
+    /// Higher = further from the centre (closer to the window edge).
+    pub priority: i32,
+    pub build: ViewBuilder,
+}
+
+/// A title bar widget (VCS branch, run configuration…; React `TitleItemContribution`).
+#[derive(Clone)]
+pub struct TitleItem {
     pub id: &'static str,
     pub align: StatusAlign,
     /// Higher = further from the centre (closer to the window edge).
@@ -100,6 +112,7 @@ pub struct Extensions {
     plugins: Vec<&'static str>,
     tool_windows: Vec<ToolWindow>,
     status_items: Vec<StatusItem>,
+    title_items: Vec<TitleItem>,
     settings_pages: Vec<SettingsPage>,
     editor_area: Option<ViewBuilder>,
     actions: Vec<ActionDef>,
@@ -125,6 +138,11 @@ impl Extensions {
 
     pub fn add_status_item(&mut self, item: StatusItem) -> &mut Self {
         upsert(&mut self.status_items, item, |s| s.id);
+        self
+    }
+
+    pub fn add_title_item(&mut self, item: TitleItem) -> &mut Self {
+        upsert(&mut self.title_items, item, |t| t.id);
         self
     }
 
@@ -164,6 +182,13 @@ impl Extensions {
     pub fn status_items(&self, align: StatusAlign) -> Vec<&StatusItem> {
         let mut out: Vec<_> = self.status_items.iter().filter(|s| s.align == align).collect();
         out.sort_by_key(|s| (std::cmp::Reverse(s.priority), s.id));
+        out
+    }
+
+    /// Title items of one side, from the window edge towards the centre.
+    pub fn title_items(&self, align: StatusAlign) -> Vec<&TitleItem> {
+        let mut out: Vec<_> = self.title_items.iter().filter(|t| t.align == align).collect();
+        out.sort_by_key(|t| (std::cmp::Reverse(t.priority), t.id));
         out
     }
 
@@ -235,7 +260,7 @@ mod tests {
     }
 
     fn tool(id: &'static str, anchor: Anchor, order: i32) -> ToolWindow {
-        ToolWindow { id, title: id.into(), anchor, order, build: view() }
+        ToolWindow { id, title: id.into(), icon: "toolwindow-project".into(), anchor, order, build: view() }
     }
 
     #[test]

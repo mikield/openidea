@@ -6,17 +6,20 @@
 
 use crate::layout::LayoutStore;
 use crate::plugin::{Anchor, Extensions, Services, StatusAlign, ToolWindow, ViewBuilder};
+use crate::skin::Islands;
+use crate::titlebar::WorkbenchTitleBar;
 use crate::tool_window::ToolWindowPanel;
-use crate::{ActionDef, RunAction, SettingsChanged, keymap, theme};
+use crate::{ActionDef, Icon, RunAction, SettingsChanged, keymap, theme};
+use gpui::prelude::FluentBuilder as _;
 use gpui::{
-    AnyView, App, AppContext, Context, Entity, FocusHandle, InteractiveElement, IntoElement, ParentElement, Pixels,
-    Render, SharedString, Styled, Subscription, Task, Window, div, px,
+    AnyView, App, AppContext, ClickEvent, Context, Entity, FocusHandle, InteractiveElement, IntoElement, ParentElement,
+    Pixels, Render, SharedString, StatefulInteractiveElement, Styled, Subscription, Task, Window, div, px,
 };
 use gpui_component::dock::{
-    BasePanelView, DockArea, DockEvent, DockLayout, DockPlacement, DockSkin, PaneRef, PanelId, PanelState,
-    panel_handle, register_panel,
+    BasePanelView, DockArea, DockEvent, DockLayout, DockPlacement, PaneRef, PanelId, PanelState, panel_handle,
+    register_panel,
 };
-use gpui_component::{ActiveTheme, h_flex, v_flex};
+use gpui_component::{h_flex, v_flex};
 use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::rc::Rc;
@@ -87,6 +90,9 @@ pub struct Workbench {
     panels: PanelIds,
     status_left: Vec<AnyView>,
     status_right: Vec<AnyView>,
+    title_left: Vec<AnyView>,
+    title_right: Vec<AnyView>,
+    stripes: Vec<Stripe>,
     focus: FocusHandle,
     save: Option<Task<()>>,
     _subscriptions: Vec<Subscription>,
@@ -98,7 +104,8 @@ impl Workbench {
     pub fn new(services: Services, layout: LayoutStore, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let panels = PanelIds::default();
         register_builders(&services, &panels, cx);
-        let (dock, _skin) = DockSkin::dock_area("workbench", Some(LAYOUT_VERSION), window, cx);
+        let dock =
+            cx.new(|cx| DockArea::new("workbench", Some(LAYOUT_VERSION), window, cx).with_renderer(Rc::new(Islands)));
         let subscriptions = vec![
             cx.subscribe(&dock, |this, _, event: &DockEvent, cx| {
                 if matches!(event, DockEvent::LayoutChanged) {
@@ -115,16 +122,31 @@ impl Workbench {
             // "Sync with OS" follows the system's light / dark mode.
             cx.observe_window_appearance(window, |this, window, cx| this.apply_appearance(window, cx)),
         ];
-        let (mut status_left, mut status_right) = (Vec::new(), Vec::new());
-        if let Some(ext) = cx.try_global::<Extensions>() {
-            let left: Vec<ViewBuilder> =
-                ext.status_items(StatusAlign::Left).into_iter().map(|s| s.build.clone()).collect();
-            let right: Vec<ViewBuilder> =
-                ext.status_items(StatusAlign::Right).into_iter().map(|s| s.build.clone()).collect();
-            status_left = left.iter().map(|build| build(&services, window, cx)).collect();
-            // From the window edge inwards: the right edge comes last.
-            status_right = right.iter().rev().map(|build| build(&services, window, cx)).collect();
-        }
+        let (status, title, stripes) = match cx.try_global::<Extensions>() {
+            Some(ext) => {
+                let status = [StatusAlign::Left, StatusAlign::Right]
+                    .map(|a| ext.status_items(a).into_iter().map(|s| s.build.clone()).collect::<Vec<_>>());
+                let title = [StatusAlign::Left, StatusAlign::Right]
+                    .map(|a| ext.title_items(a).into_iter().map(|t| t.build.clone()).collect::<Vec<_>>());
+                let stripes: Vec<Stripe> = ext
+                    .tool_windows()
+                    .into_iter()
+                    .map(|t| Stripe { id: t.id, title: t.title.clone(), icon: t.icon.clone(), anchor: t.anchor })
+                    .collect();
+                (status, title, stripes)
+            }
+            None => Default::default(),
+        };
+        // Each side from the window edge inwards: on the right the edge comes last.
+        let build = |items: &[ViewBuilder], rev: bool, window: &mut Window, cx: &mut App| -> Vec<AnyView> {
+            let mut views: Vec<AnyView> = items.iter().map(|b| b(&services, window, cx)).collect();
+            if rev {
+                views.reverse();
+            }
+            views
+        };
+        let (status_left, status_right) = (build(&status[0], false, window, cx), build(&status[1], true, window, cx));
+        let (title_left, title_right) = (build(&title[0], false, window, cx), build(&title[1], true, window, cx));
         let mut this = Self {
             services,
             dock,
@@ -132,6 +154,9 @@ impl Workbench {
             panels,
             status_left,
             status_right,
+            title_left,
+            title_right,
+            stripes,
             focus: cx.focus_handle(),
             save: None,
             _subscriptions: subscriptions,
@@ -308,33 +333,96 @@ impl Workbench {
     }
 }
 
+/// A tool window's button on a stripe.
+#[derive(Clone)]
+struct Stripe {
+    id: &'static str,
+    title: SharedString,
+    icon: SharedString,
+    anchor: Anchor,
+}
+
+/// `--stripe-button-w` is the hover area; the visible button is 32px, icons 20px.
+const STRIPE_WIDTH: f32 = 40.;
+
+impl Workbench {
+    fn stripe_button(&self, stripe: &Stripe, cx: &mut Context<Self>) -> gpui::Stateful<gpui::Div> {
+        let visible = self.is_tool_window_visible(stripe.id, cx);
+        let (selected, hover) = (theme::token(cx, "bg-stripe-selected"), theme::token(cx, "bg-stripe-hover"));
+        let id = stripe.id;
+        let title = stripe.title.clone();
+        div()
+            .id(SharedString::from(format!("stripe-{id}")))
+            .size(px(32.))
+            .flex()
+            .items_center()
+            .justify_center()
+            .rounded(px(6.))
+            .when(visible, |b| b.bg(selected))
+            .hover(move |b| b.bg(hover))
+            .tooltip(move |window, cx| gpui_component::tooltip::Tooltip::new(title.clone()).build(window, cx))
+            .child(Icon::new(stripe.icon.clone()).size(px(20.)))
+            .on_click(cx.listener(move |wb, _: &ClickEvent, window, cx| {
+                wb.toggle_tool_window(id, window, cx);
+                cx.notify();
+            }))
+    }
+
+    /// A vertical stripe: `top` buttons, then `bottom` ones pushed to the end.
+    fn stripe(&self, top: &[Stripe], bottom: &[Stripe], cx: &mut Context<Self>) -> gpui::Div {
+        v_flex()
+            .w(px(STRIPE_WIDTH))
+            .flex_none()
+            .h_full()
+            .items_center()
+            .py(px(4.))
+            .gap(px(4.))
+            .children(top.iter().map(|s| self.stripe_button(s, cx)).collect::<Vec<_>>())
+            .child(div().flex_1())
+            .children(bottom.iter().map(|s| self.stripe_button(s, cx)).collect::<Vec<_>>())
+    }
+}
+
 impl Render for Workbench {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let theme = cx.theme();
-        let status = (!self.status_left.is_empty() || !self.status_right.is_empty()).then(|| {
-            h_flex()
-                .h(px(24.))
-                .flex_none()
-                .px_2()
-                .gap_3()
-                .text_xs()
-                .bg(theme.status_bar)
-                .border_t_1()
-                .border_color(theme.status_bar_border)
-                .text_color(theme.muted_foreground)
-                .children(self.status_left.iter().cloned())
-                .child(div().flex_1())
-                .children(self.status_right.iter().cloned())
-        });
+        let at = |anchor: Anchor| self.stripes.iter().filter(|s| s.anchor == anchor).cloned().collect::<Vec<_>>();
+        let (left, right, bottom) = (at(Anchor::Left), at(Anchor::Right), at(Anchor::Bottom));
+        // IDEA's left stripe holds the left tool windows on top and the bottom ones below.
+        let left_stripe = self.stripe(&left, &bottom, cx);
+        let right_stripe = (!right.is_empty()).then(|| self.stripe(&right, &[], cx));
+        let project = self.services.backend.read(cx).project().name.clone();
+        let status = h_flex()
+            .h(px(30.))
+            .flex_none()
+            .px(px(12.))
+            .gap(px(16.))
+            .text_xs()
+            .text_color(theme::token(cx, "fg-secondary"))
+            .children(self.status_left.iter().cloned())
+            .child(div().flex_1())
+            .children(self.status_right.iter().cloned());
         v_flex()
             .size_full()
-            .bg(theme.background)
-            .text_color(theme.foreground)
+            .bg(theme::token(cx, "bg-frame"))
+            .text_color(theme::token(cx, "fg"))
             .key_context("Workbench")
             .track_focus(&self.focus)
             .on_action(cx.listener(Self::on_run_action))
-            .child(div().flex_1().min_h_0().child(self.dock.clone()))
-            .children(status)
+            .child(WorkbenchTitleBar {
+                project: project.into(),
+                left: self.title_left.clone(),
+                right: self.title_right.clone(),
+            })
+            .child(
+                h_flex()
+                    .flex_1()
+                    .min_h_0()
+                    .child(left_stripe)
+                    .child(div().flex_1().min_w_0().h_full().child(self.dock.clone()))
+                    .children(right_stripe)
+                    .when(right.is_empty(), |row| row.pr(px(3.))),
+            )
+            .child(status)
     }
 }
 

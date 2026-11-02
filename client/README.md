@@ -15,7 +15,7 @@ client/
 ├─ crates/client-rpc   typed protocol client over a `Transport` (stdio), UTF-8 ↔ UTF-16 coordinates, e2e tests
 ├─ crates/oi-server    our backend binary: `Dispatcher::standard()` + `oi_*` commands
 ├─ crates/client-core  workbench core: plugins and extension points, actions, dock, settings, keymap, theme
-├─ crates/plugin-*     features as plugins: editor, project-tree, problems, presets (keymaps, themes)
+├─ crates/plugin-*     features as plugins: editor, project-tree, problems, vcs, presets (keymaps, themes)
 └─ crates/client-app   `openidea-gpui`: `main.rs` and the list of plugins
 ```
 
@@ -38,6 +38,8 @@ backend's config and caches. Plan, decisions and next steps: [`PORTING.md`](PORT
 - open / edit / save documents (`doc_open`, `doc_edit`, `doc_save`); edits are
   diffed against the last synced text and sent in UTF-16 offsets
 - diagnostics from the server's language servers (Problems tool window, editor hover)
+- the React look: Islands panels, tool window stripes with icons, a frameless title bar
+  with project and branch, upstream's icons in the tree and tabs
 - a dock: Project (left), Problems (bottom), the editor in the center; Alt+1 / Alt+6 and the
   rest of the chosen keymap; the layout persists per project
 - completion through `lsp_completion`, filtered and ranked client-side

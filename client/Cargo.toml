@@ -29,11 +29,14 @@ plugin-presets = { path = "crates/plugin-presets" }
 plugin-editor = { path = "crates/plugin-editor" }
 plugin-project-tree = { path = "crates/plugin-project-tree" }
 plugin-problems = { path = "crates/plugin-problems" }
+plugin-vcs = { path = "crates/plugin-vcs" }
 
 # GPUI as gpui-component pins it (a published snapshot of Zed's gpui), pinned exactly.
 gpui = { package = "gpui-pre", version = "=0.3.10" }
 gpui_platform = { package = "gpui-pre-platform", version = "=0.3.10", features = ["font-kit", "x11", "wayland", "runtime_shaders"] }
 gpui-component = { version = "=0.8.1", features = ["syntect"] }
+# The dock's foundation, for renderer types gpui-component does not re-export; its pin.
+gpui-base = "=0.8.1"
 gpui-kit-assets = "=0.8.1"
 
 serde = { version = "1", features = ["derive"] }

@@ -23,6 +23,7 @@ impl Plugin for ProblemsPlugin {
         ext.add_tool_window(ToolWindow {
             id: "problems",
             title: "Problems".into(),
+            icon: "toolwindow-problems".into(),
             anchor: Anchor::Bottom,
             order: 0,
             build: Rc::new(|services, _, cx| cx.new(|cx| Problems::new(services, cx)).into()),

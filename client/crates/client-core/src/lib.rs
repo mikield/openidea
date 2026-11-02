@@ -15,27 +15,33 @@
 //!   [`DiagnosticsStore`] (problems per file).
 
 mod actions;
+mod assets;
 mod backend;
 pub mod diagnostics;
 pub mod editors;
+pub mod icons;
 pub mod keymap;
 pub mod layout;
 mod plugin;
 mod settings;
+mod skin;
 mod status;
 pub mod theme;
+mod titlebar;
 mod tool_window;
 mod workbench;
 #[cfg(test)]
 mod workbench_tests;
 
 pub use actions::{ActionDef, ActionRun, RunAction};
+pub use assets::Assets;
 pub use backend::Backend;
 pub use diagnostics::{DiagnosticsChanged, DiagnosticsStore};
 pub use editors::{EditorEvent, Editors};
+pub use icons::Icon;
 pub use keymap::KeymapPreset;
 pub use plugin::{
-    Anchor, Extensions, Plugin, Services, SettingsPage, StatusAlign, StatusItem, ToolWindow, ViewBuilder,
+    Anchor, Extensions, Plugin, Services, SettingsPage, StatusAlign, StatusItem, TitleItem, ToolWindow, ViewBuilder,
 };
 pub use settings::{SettingsChanged, SettingsScope, SettingsStore};
 pub use theme::{ThemeDef, ThemeKind};

@@ -1,0 +1,18 @@
+[package]
+name = "plugin-vcs"
+description = "Version control: for now the current branch in the title bar"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+client-core.workspace = true
+client-rpc.workspace = true
+ide-core.workspace = true
+gpui.workspace = true
+gpui-component.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true

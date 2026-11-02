@@ -271,9 +271,49 @@ async function themes(): Promise<Record<string, unknown>> {
   return files;
 }
 
+// ── icons ───────────────────────────────────────────────────────────────────
+
+/**
+ * The icon tables of `src/ui/icons.tsx` (name → SVG path, file name → icon).
+ * That module is TSX with Vite's `import.meta.glob`, so it cannot run here: the
+ * literal tables are cut out by bracket matching and evaluated on their own.
+ */
+function iconTables(): Record<string, unknown> {
+  const src = readFileSync(join(repo, "src/ui/icons.tsx"), "utf8");
+  const literal = (name: string): string => {
+    const decl = new RegExp(`\\nconst ${name}\\b[^=]*=`).exec(src);
+    if (!decl) throw new Error(`icons.tsx: no ${name}`);
+    const after = decl.index + decl[0].length;
+    const start = src.slice(after).search(/[{[(]/) + after;
+    const close = { "{": "}", "[": "]", "(": ")" }[src[start] as "{" | "[" | "("];
+    let depth = 0;
+    for (let i = start; i < src.length; i++) {
+      if (src[i] === "/" && src[i + 1] === "/") i = src.indexOf("\n", i);
+      else if (src[i] === src[start]) depth++;
+      else if (src[i] === close && --depth === 0) return src.slice(start, i + 1);
+    }
+    throw new Error(`icons.tsx: unbalanced ${name}`);
+  };
+  const table = (groups: Record<string, string>) => {
+    const out: Record<string, string> = {};
+    for (const [icon, keys] of Object.entries(groups)) for (const key of keys.split(/\s+/)) if (key) out[key] = icon;
+    return out;
+  };
+  const evaluate = (code: string) => new Function("table", `return (${code});`)(table);
+  const patterns = evaluate(literal("NAME_PATTERNS")) as Array<[RegExp, string]>;
+  return {
+    from: revision(["src/ui/icons.tsx"]),
+    icons: evaluate(literal("ICONS")),
+    fileNames: evaluate(`table(${literal("FILE_NAMES").replace(/^\(/, "").replace(/\)$/, "")})`),
+    namePatterns: patterns.map(([re, icon]) => [re.source, icon]),
+    extensions: evaluate(`table(${literal("EXT_ICONS").replace(/^\(/, "").replace(/\)$/, "")})`),
+    codeExtensions: [...(evaluate(`new Set(${literal("CODE_EXT").replace(/^\(/, "").replace(/\)$/, "")})`) as Set<string>)],
+  };
+}
+
 // ── write / check ───────────────────────────────────────────────────────────
 
-const files = { ...(await keymaps()), ...(await themes()) };
+const files: Record<string, unknown> = { ...(await keymaps()), ...(await themes()), "../../client-core/data/icons.json": iconTables() };
 const stale: string[] = [];
 for (const [path, data] of Object.entries(files)) {
   const file = join(out, path);

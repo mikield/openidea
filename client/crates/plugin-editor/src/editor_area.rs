@@ -3,16 +3,19 @@
 
 use crate::completion::ServerCompletions;
 use crate::doc_sync::DocSync;
-use client_core::{DiagnosticsChanged, DiagnosticsStore, EditorEvent, Editors, Services};
+use client_core::icons::file_icon_name;
+use client_core::keymap::shortcut_label;
+use client_core::theme::token;
+use client_core::{DiagnosticsChanged, DiagnosticsStore, EditorEvent, Editors, Icon, Services};
 use client_rpc::proto::DocumentInfo;
 use client_rpc::{Connection, text};
 use gpui::{
-    AppContext, Context, Entity, IntoElement, ParentElement, Render, SharedString, Styled, Subscription, Window, div,
-    px, relative,
+    App, AppContext, Context, Entity, IntoElement, ParentElement, Render, SharedString, Styled, Subscription, Window,
+    div, px, relative,
 };
 use gpui_component::highlighter::{Diagnostic as EditorDiagnostic, DiagnosticSeverity};
 use gpui_component::input::{Editor, EditorState, InputEvent, Position};
-use gpui_component::{ActiveTheme, h_flex, v_flex};
+use gpui_component::{h_flex, v_flex};
 use ide_core::{IdeEvent, Pos, Severity};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -176,46 +179,68 @@ fn severity(s: Severity) -> DiagnosticSeverity {
     }
 }
 
+/// What an empty editor area suggests (React's `EditorArea` empty state), with this keymap's keys.
+fn empty_hints(cx: &App) -> gpui::Div {
+    let hints = [
+        ("Search Everywhere", "navigate.searchEverywhere"),
+        ("Go to File", "navigate.gotoFile"),
+        ("Recent Files", "navigate.recentFiles"),
+        ("Navigation Bar", "navigate.navigationBar"),
+    ];
+    let (muted, link) = (token(cx, "fg-secondary"), token(cx, "link"));
+    let rows = hints.into_iter().filter_map(|(title, action)| {
+        let keys = shortcut_label(cx, action)?;
+        Some(
+            h_flex()
+                .gap(px(16.))
+                .child(div().w(px(160.)).flex().justify_end().text_color(muted).child(title))
+                .child(div().w(px(160.)).text_color(link).child(keys)),
+        )
+    });
+    v_flex()
+        .size_full()
+        .items_center()
+        .justify_center()
+        .gap(px(10.))
+        .text_sm()
+        .children(rows)
+        .child(div().pt(px(6.)).text_color(token(cx, "fg-subtle")).child("Open a file from the Project tool window"))
+}
+
 impl Render for EditorArea {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let theme = cx.theme();
-        let title = match &self.open {
-            Some(o) => {
-                let name = o.path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-                let flags = match (o.dirty, o.read_only) {
-                    (_, true) => " (read-only)",
-                    (true, _) => " ●",
-                    _ => "",
-                };
-                format!("{name}{flags}")
-            }
-            None => "No file open".into(),
+        let Some(open) = &self.open else {
+            return v_flex().size_full().child(empty_hints(cx));
         };
-        let body = match &self.open {
-            Some(o) => div().size_full().child(Editor::new(&o.editor).bordered(false).h(relative(1.))),
-            None => div()
-                .size_full()
-                .flex()
-                .items_center()
-                .justify_center()
-                .text_color(theme.muted_foreground)
-                .child("Open a file from the Project tool window (Alt+1)"),
+        let name = open.path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+        let flags = match (open.dirty, open.read_only) {
+            (_, true) => " (read-only)",
+            (true, _) => " ●",
+            _ => "",
         };
+        // One tab for now (`--h-tabbar`, `--radius-tab`, the selected tab colours).
+        let tab = h_flex()
+            .h(px(28.))
+            .px(px(8.))
+            .gap(px(6.))
+            .rounded(px(6.))
+            .bg(token(cx, "bg-tab-selected"))
+            .border_1()
+            .border_color(token(cx, "border-tab-selected"))
+            .child(Icon::new(file_icon_name(&name)).size(px(16.)))
+            .child(format!("{name}{flags}"));
         v_flex()
             .size_full()
             .child(
                 h_flex()
-                    .h(px(30.))
+                    .h(px(38.))
                     .flex_none()
-                    .px_3()
-                    .gap_3()
+                    .px(px(8.))
+                    .gap(px(12.))
                     .text_sm()
-                    .bg(theme.tab_bar)
-                    .border_b_1()
-                    .border_color(theme.border)
-                    .child(title)
-                    .child(div().text_xs().text_color(theme.muted_foreground).child(self.note.clone())),
+                    .child(tab)
+                    .child(div().text_xs().text_color(token(cx, "fg-subtle")).child(self.note.clone())),
             )
-            .child(div().flex_1().min_h_0().child(body))
+            .child(div().flex_1().min_h_0().child(Editor::new(&open.editor).bordered(false).h(relative(1.))))
     }
 }

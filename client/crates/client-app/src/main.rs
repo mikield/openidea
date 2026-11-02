@@ -10,7 +10,7 @@ use client_core::layout::LayoutStore;
 use client_core::{Backend, Plugin, Services, Workbench};
 use client_rpc::{Connection, Stdio, Transport as _};
 use gpui::{AppContext, Bounds, TitlebarOptions, WindowBounds, WindowOptions, px, size};
-use gpui_component::Root;
+use gpui_component::{Root, TitleBar};
 use std::path::PathBuf;
 
 fn main() -> anyhow::Result<()> {
@@ -47,7 +47,7 @@ fn main() -> anyhow::Result<()> {
     let open = open.map(|file| project.root.0.join(file));
     let layout = LayoutStore::for_project(&project.root.0);
 
-    gpui_platform::application().with_assets(gpui_kit_assets::Assets).run(move |cx| {
+    gpui_platform::application().with_assets(client_core::Assets).run(move |cx| {
         gpui_component::init(cx);
         // Keymap and theme follow the settings once the workbench opens.
         let plugins: Vec<Box<dyn Plugin>> = vec![
@@ -55,6 +55,7 @@ fn main() -> anyhow::Result<()> {
             Box::new(plugin_editor::EditorPlugin::default()),
             Box::new(plugin_project_tree::ProjectTreePlugin),
             Box::new(plugin_problems::ProblemsPlugin),
+            Box::new(plugin_vcs::VcsPlugin),
         ];
         client_core::activate(&plugins, cx);
 
@@ -64,7 +65,8 @@ fn main() -> anyhow::Result<()> {
         let bounds = Bounds::centered(None, size(px(1280.), px(800.)), cx);
         let options = WindowOptions {
             window_bounds: Some(WindowBounds::Windowed(bounds)),
-            titlebar: Some(TitlebarOptions { title: Some("OpenIDEA · GPUI".into()), ..Default::default() }),
+            // Frameless: the workbench draws the title bar (project, branch, window controls).
+            titlebar: Some(TitlebarOptions { title: Some("OpenIDEA · GPUI".into()), ..TitleBar::title_bar_options() }),
             ..Default::default()
         };
         cx.open_window(options, |window, cx| {

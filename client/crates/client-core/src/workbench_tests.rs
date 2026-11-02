@@ -62,7 +62,7 @@ fn label(text: &'static str) -> ViewBuilder {
 }
 
 fn tool(id: &'static str, anchor: Anchor, order: i32) -> ToolWindow {
-    ToolWindow { id, title: id.into(), anchor, order, build: label(id) }
+    ToolWindow { id, title: id.into(), icon: "toolwindow-project".into(), anchor, order, build: label(id) }
 }
 
 struct TestPlugin(Vec<ToolWindow>);

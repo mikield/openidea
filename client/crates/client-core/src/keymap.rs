@@ -100,6 +100,83 @@ fn key_name(key: &str) -> Option<String> {
     Some(named.to_owned())
 }
 
+/// The effective bindings last applied, for menus and hints ([`shortcut_label`]).
+struct Effective(Bindings);
+
+impl gpui::Global for Effective {}
+
+/// How the first keyboard binding of `action` reads (React's `shortcutLabel`), if bound.
+pub fn shortcut_label(cx: &App, action: &str) -> Option<String> {
+    let keys = cx.try_global::<Effective>()?.0.get(action)?;
+    keys.iter().find(|k| !k.contains("Button")).map(|k| format_binding(k, cfg!(target_os = "macos")))
+}
+
+/// React's `formatBinding`: `Ctrl+Shift+N`, chords `Ctrl+K, Ctrl+I`, `Shift, Shift`;
+/// on macOS symbols in menu order (`⇧⌘O`, `⇧⇧`).
+pub fn format_binding(binding: &str, mac: bool) -> String {
+    let label = |key: &str| match key {
+        "NumpadAdd" => "NumPad +".to_owned(),
+        "NumpadSubtract" => "NumPad -".to_owned(),
+        "NumpadMultiply" => "NumPad *".to_owned(),
+        "NumpadDivide" => "NumPad /".to_owned(),
+        other => other.to_owned(),
+    };
+    // React's `normalizeBinding`: modifiers in a fixed order.
+    let split = |stroke: &str| -> (Vec<&'static str>, String) {
+        let (mods, key) = match stroke.strip_suffix("++") {
+            Some(mods) => (mods, "+"),
+            None => stroke.rsplit_once('+').unwrap_or(("", stroke)),
+        };
+        let held: Vec<&str> = mods.split('+').collect();
+        let ordered =
+            ["Ctrl", "Alt", "Shift", "Meta"].into_iter().filter(|m| held.iter().any(|h| h.eq_ignore_ascii_case(m)));
+        (ordered.collect(), key.to_owned())
+    };
+    if !mac {
+        return binding
+            .split_whitespace()
+            .map(|stroke| {
+                let (mods, key) = split(stroke);
+                mods.into_iter().map(str::to_owned).chain([label(&key)]).collect::<Vec<_>>().join("+")
+            })
+            .collect::<Vec<_>>()
+            .join(", ");
+    }
+    let symbol = |key: &str| -> Option<&'static str> {
+        Some(match key {
+            "Meta" => "⌘",
+            "Ctrl" => "⌃",
+            "Alt" => "⌥",
+            "Shift" => "⇧",
+            "Enter" => "↵",
+            "Escape" => "⎋",
+            "Tab" => "⇥",
+            "Backspace" => "⌫",
+            "Delete" => "⌦",
+            "Up" => "↑",
+            "Down" => "↓",
+            "Left" => "←",
+            "Right" => "→",
+            "PageUp" => "⇞",
+            "PageDown" => "⇟",
+            _ => return None,
+        })
+    };
+    let strokes: Vec<String> = binding
+        .split_whitespace()
+        .map(|stroke| {
+            let (mods, key) = split(stroke);
+            let mods: String = mods.into_iter().filter_map(symbol).collect();
+            mods + &symbol(&key).map(str::to_owned).unwrap_or_else(|| label(&key))
+        })
+        .collect();
+    // A double-tapped modifier reads `⇧⇧`.
+    if strokes.len() == 2 && strokes[0].chars().count() == 1 && strokes[1].starts_with(&strokes[0]) {
+        return strokes.concat();
+    }
+    strokes.join(" ")
+}
+
 /// Replaces the keymap's [`RunAction`] bindings with `bindings`, keeping every
 /// other binding (the components' own). Only ids `bound` accepts are bound, so a
 /// key no plugin implements still reaches the focused view (Tab, Enter…).
@@ -121,6 +198,7 @@ pub fn apply(bindings: &Bindings, bound: impl Fn(&str) -> bool, cx: &mut App) {
         keymap.borrow().bindings().filter(|b| !b.action().as_any().is::<RunAction>()).cloned().collect();
     cx.clear_key_bindings();
     cx.bind_keys(kept.into_iter().chain(ours));
+    cx.set_global(Effective(bindings.clone()));
 }
 
 #[cfg(test)]
@@ -152,6 +230,16 @@ mod tests {
         assert_eq!(to_gpui("Shift Shift"), None);
         assert_eq!(to_gpui("Button4"), None);
         assert_eq!(to_gpui("Ctrl+Alt+Button1"), None);
+    }
+
+    #[test]
+    fn bindings_read_like_react() {
+        assert_eq!(format_binding("Ctrl+Shift+N", false), "Ctrl+Shift+N");
+        assert_eq!(format_binding("Shift Shift", false), "Shift, Shift");
+        assert_eq!(format_binding("Ctrl+K Ctrl+I", false), "Ctrl+K, Ctrl+I");
+        assert_eq!(format_binding("Meta+Shift+O", true), "⇧⌘O");
+        assert_eq!(format_binding("Shift+Meta+R", false), "Shift+Meta+R");
+        assert_eq!(format_binding("Shift Shift", true), "⇧⇧");
     }
 
     #[test]
