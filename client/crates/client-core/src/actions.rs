@@ -4,13 +4,13 @@
 //!
 //! GPUI dispatches typed actions; every binding here dispatches the one typed
 //! [`RunAction`] carrying the id, and the [`Workbench`](crate::Workbench) looks
-//! the id up. So keymaps stay data (id → shortcuts), as in the React keymaps.
+//! the id up. So keymaps stay data (id → shortcuts, `crate::keymap`), as in React.
 
 use crate::Workbench;
 use gpui::{Context, SharedString, Window};
 use std::rc::Rc;
 
-/// Runs the action with `id`. Bound to keystrokes by [`Extensions::bind`](crate::Extensions::bind).
+/// Runs the action with `id`; the keymap binds keystrokes to it.
 #[derive(Clone, PartialEq, Debug, gpui::Action)]
 #[action(namespace = openidea, no_json)]
 pub struct RunAction {
@@ -24,7 +24,7 @@ pub type ActionRun = Rc<dyn Fn(&mut Workbench, &mut Window, &mut Context<Workben
 #[derive(Clone)]
 pub struct ActionDef {
     /// Dotted, stable id, e.g. `file.save`.
-    pub id: &'static str,
+    pub id: SharedString,
     pub title: SharedString,
     /// Group in the command palette and the keymap editor, e.g. `File`.
     pub category: Option<SharedString>,
@@ -33,11 +33,11 @@ pub struct ActionDef {
 
 impl ActionDef {
     pub fn new(
-        id: &'static str,
+        id: impl Into<SharedString>,
         title: impl Into<SharedString>,
         run: impl Fn(&mut Workbench, &mut Window, &mut Context<Workbench>) + 'static,
     ) -> Self {
-        Self { id, title: title.into(), category: None, run: Rc::new(run) }
+        Self { id: id.into(), title: title.into(), category: None, run: Rc::new(run) }
     }
 
     pub fn category(mut self, category: impl Into<SharedString>) -> Self {

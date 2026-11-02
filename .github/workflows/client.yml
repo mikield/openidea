@@ -40,6 +40,12 @@ jobs:
             libx11-xcb-dev libxcb-xkb-dev libfontconfig-dev
       - if: runner.os == 'Linux'
         run: cargo fmt --all --check
+      # Keymaps and themes are exported from the React frontend: fail when they drifted.
+      - if: runner.os == 'Linux'
+        uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - if: runner.os == 'Linux'
+        run: node scripts/export-presets.ts --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
       # Builds `oi-server` too, so the end-to-end tests run against it on every OS;
       # the language-server test skips itself without `rust-analyzer`.

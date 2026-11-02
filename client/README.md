@@ -14,7 +14,8 @@ Upstream crates are used read-only (`ide-core`, `ide-jsonrpc`, `ide-host`, …).
 client/
 ├─ crates/client-rpc   typed protocol client over a `Transport` (stdio), UTF-8 ↔ UTF-16 coordinates, e2e tests
 ├─ crates/oi-server    our backend binary: `Dispatcher::standard()` + `oi_*` commands
-├─ crates/client-core  workbench core: plugins and extension points, actions, dock, settings
+├─ crates/client-core  workbench core: plugins and extension points, actions, dock, settings, keymap, theme
+├─ crates/plugin-presets built-in keymaps and themes (data exported by `scripts/export-presets.ts`)
 └─ crates/client-app   `openidea-gpui`: the spike's view (tree, editor, problems) as a plugin
 ```
 
@@ -49,8 +50,7 @@ rust-analyzer test needs `rust-analyzer` on `PATH`.
 
 - one editor, no tabs; no go-to-definition, hover docs, formatting
 - backend-initiated document changes (`DocPatched`) are not merged yet
-- theme is gpui-component's built-in dark; OpenIDEA themes live in the web
-  frontend's CSS tokens and are not shared yet
+- themes and keymaps follow the settings, but there is no Settings UI to switch them yet
 - duplicate completion items are not merged
 - error squiggles are not visible under Mesa llvmpipe (hover shows the diagnostic);
   unverified on real GPUs

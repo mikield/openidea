@@ -8,14 +8,18 @@
 //!   name an id, never a Rust type (React: `src/platform/actions.ts`).
 //! - [`Workbench`]: the window: a dock with tool windows and tabs around the
 //!   editor area, and a status bar. The layout persists per project.
+//! - [`KeymapPreset`] / [`ThemeDef`]: keymaps and themes are contributed as data;
+//!   the settings pick one of each.
 //! - [`Backend`] / [`SettingsStore`]: the window's server connection and its
 //!   settings (`settings_get` / `settings_set`).
 
 mod actions;
 mod backend;
+pub mod keymap;
 pub mod layout;
 mod plugin;
 mod settings;
+pub mod theme;
 mod tool_window;
 mod workbench;
 #[cfg(test)]
@@ -23,10 +27,12 @@ mod workbench_tests;
 
 pub use actions::{ActionDef, ActionRun, RunAction};
 pub use backend::Backend;
+pub use keymap::KeymapPreset;
 pub use plugin::{
     Anchor, Extensions, Plugin, Services, SettingsPage, StatusAlign, StatusItem, ToolWindow, ViewBuilder,
 };
 pub use settings::{SettingsChanged, SettingsScope, SettingsStore};
+pub use theme::{ThemeDef, ThemeKind};
 pub use workbench::{EDITOR_AREA, Workbench};
 
 /// Activates `plugins` in order and installs what they contribute.

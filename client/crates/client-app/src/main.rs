@@ -15,7 +15,7 @@ use client_core::layout::LayoutStore;
 use client_core::{Backend, Plugin, Services, SettingsStore, Workbench};
 use client_rpc::{Connection, Stdio, Transport as _};
 use gpui::{AppContext, Bounds, TitlebarOptions, WindowBounds, WindowOptions, px, size};
-use gpui_component::{Root, Theme, ThemeMode};
+use gpui_component::Root;
 use std::path::PathBuf;
 
 fn main() -> anyhow::Result<()> {
@@ -54,8 +54,9 @@ fn main() -> anyhow::Result<()> {
 
     gpui_platform::application().with_assets(gpui_kit_assets::Assets).run(move |cx| {
         gpui_component::init(cx);
-        Theme::change(ThemeMode::Dark, None, cx);
-        let plugins: Vec<Box<dyn Plugin>> = vec![Box::new(spike_plugin::SpikeWorkspace::new(open))];
+        // Keymap and theme follow the settings once the workbench opens.
+        let plugins: Vec<Box<dyn Plugin>> =
+            vec![Box::new(plugin_presets::Presets), Box::new(spike_plugin::SpikeWorkspace::new(open))];
         client_core::activate(&plugins, cx);
 
         let backend = cx.new(|cx| Backend::new(conn, handle, info, project, events, cx));

@@ -88,9 +88,24 @@ is GPL: never copy from it.
    - Deferred on purpose: `EditorFeature` to wave 2 (it needs the editor it extends), themes to
      step 4; the Settings dialog and a command palette consume `SettingsPage` / actions later.
      One window per process for now: panel builders are a GPUI global.
-4. Keymaps and themes as data: convert `src/platform/keymaps/*.ts` (action id → shortcuts) and
-   `src/styles/tokens.css` / `scripts/theme/` into JSON with a script; map tokens onto
-   gpui-component `ThemeColor` and the highlight theme. Themes become a contribution plugin.
+4. ~~Keymaps and themes as data~~ — done:
+   - `node client/scripts/export-presets.ts` (Node >= 23, no packages) writes
+     `crates/plugin-presets/data/`: the 6 keymaps imported from `src/platform/keymaps/*.ts`, and
+     the 7 built-in themes resolved from `src/styles/tokens.css` (cascade per theme attributes,
+     `var()`, `color-mix()`, `hsl()`). Each file records its upstream revision (`from`); CI runs
+     it with `--check`, so an upstream change to keymaps or tokens fails the build until re-exported.
+   - `plugin-presets` contributes them (`Extensions::add_keymap` / `add_theme`); `client-core`
+     picks one of each from the settings (`keymap`, `keymapOverrides`, `customKeymaps`;
+     `appearance.theme` / `syncWithOs` / preferred themes / `accent`) and re-applies on
+     `SettingsChanged` and OS light/dark changes.
+   - Keymap: only ids of registered actions are bound (others keep reaching the focused view);
+     double-tapped modifiers (`Shift Shift`) and mouse bindings are not expressible in GPUI yet.
+     Tool windows get `toolwindow.<id>` actions (Alt+1 …) as in React. `Extensions::bind` is gone:
+     default keys live in keymaps, never on the action.
+   - Theme: `client_core::theme` maps tokens onto gpui-component colours and the editor
+     highlight style (tables `COLORS` / `EDITOR` / `SYNTAX`).
+   - Not yet: the Settings UI to switch them, plugin themes (`data-plugin-theme`), editor
+     schemes beyond the theme's own syntax tokens.
 5. Move the spike's project tree into the first plugin; the spike's `workspace.rs` dissolves
    into core + plugins.
 6. `client.yml` CI green on macOS, Windows and Linux.
@@ -113,6 +128,11 @@ is GPL: never copy from it.
 - **GPUI tests:** `#[gpui::test]` with `TestAppContext::add_window_view` works headless on every
   OS (`gpui` dev-dependency with `test-support`). Anything awaiting the tokio-side connection
   needs `cx.executor().allow_parking()`, else the test scheduler reports non-determinism.
+- **gpui-component highlight keys:** built with `syntect` (no `tree-sitter`), it compiles
+  `highlighter/wasm_stub.rs`, where the editor colours are `editor_background`…; with
+  `tree-sitter` they are `editor.background`…. `theme_config` writes both spellings.
+- **Settings file:** `oi-server` emits `SettingsChanged` only for `settings_set`; editing
+  `config/settings.toml` by hand takes effect on the next start.
 - **Windows paths:** `std::fs::canonicalize` returns `\\?\C:\…`, the server reports `C:/…`;
   strip the verbatim prefix before comparing (or use `dunce`).
 - **Backend:** language servers start only for trusted projects (`project_trust_set`).
@@ -148,3 +168,5 @@ Headless check (Linux, agents and CI): `client/scripts/headless-shot.sh PROJECT 
 | --- | --- | --- | --- |
 | project-tree | — | 4015a5b (spike only) | spike |
 | editor (basic) | — | 4015a5b (spike only) | spike |
+| keymaps (6 presets) | plugin-presets | 87bf89d (`src/platform/keymaps`) | data, re-export with the script |
+| themes (7 built-in) | plugin-presets | 2c9a647 (`tokens.css`, `themes.ts`) | data, re-export with the script |

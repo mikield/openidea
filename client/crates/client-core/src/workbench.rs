@@ -7,7 +7,7 @@
 use crate::layout::LayoutStore;
 use crate::plugin::{Anchor, Extensions, Services, StatusAlign, ToolWindow, ViewBuilder};
 use crate::tool_window::ToolWindowPanel;
-use crate::{ActionDef, RunAction};
+use crate::{ActionDef, RunAction, SettingsChanged, keymap, theme};
 use gpui::{
     AnyView, App, AppContext, Context, Entity, FocusHandle, InteractiveElement, IntoElement, ParentElement, Pixels,
     Render, SharedString, Styled, Subscription, Task, Window, div, px,
@@ -58,6 +58,26 @@ pub(crate) fn contribute(ext: &mut Extensions) {
         })
         .category("Window"),
     );
+    ext.add_action(
+        ActionDef::new("toolwindow.hideAll", "Hide All Tool Windows", |wb, window, cx| wb.hide_all(window, cx))
+            .category("Window"),
+    );
+}
+
+/// `toolwindow.<id>` per tool window (React: `src/workbench/toolwindows/actions.ts`),
+/// unless a plugin registered that id itself. Runs after every plugin activated.
+pub(crate) fn contribute_tool_window_actions(ext: &mut Extensions) {
+    let tool_windows: Vec<(&'static str, SharedString)> =
+        ext.tool_windows().into_iter().map(|t| (t.id, t.title.clone())).collect();
+    for (id, title) in tool_windows {
+        let action = format!("toolwindow.{id}");
+        if ext.action(&action).is_none() {
+            ext.add_action(
+                ActionDef::new(action, title, move |wb, window, cx| wb.toggle_tool_window(id, window, cx))
+                    .category("Window"),
+            );
+        }
+    }
 }
 
 pub struct Workbench {
@@ -89,6 +109,11 @@ impl Workbench {
                 this.save_layout(cx);
                 async {}
             }),
+            cx.subscribe_in(&services.settings, window, |this, _, _: &SettingsChanged, window, cx| {
+                this.apply_appearance(window, cx)
+            }),
+            // "Sync with OS" follows the system's light / dark mode.
+            cx.observe_window_appearance(window, |this, window, cx| this.apply_appearance(window, cx)),
         ];
         let (mut status_left, mut status_right) = (Vec::new(), Vec::new());
         if let Some(ext) = cx.try_global::<Extensions>() {
@@ -111,9 +136,36 @@ impl Workbench {
             save: None,
             _subscriptions: subscriptions,
         };
+        this.apply_appearance(window, cx);
         this.restore_layout(window, cx);
         window.focus(&this.focus, cx);
         this
+    }
+
+    /// Binds the keymap and applies the theme the settings choose.
+    fn apply_appearance(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let settings = self.services.settings.read(cx).settings().clone();
+        let Some(ext) = cx.try_global::<Extensions>() else { return };
+        let bindings = keymap::effective(ext.keymaps(), &settings);
+        let actions: HashSet<String> = ext.actions().into_iter().map(|a| a.id.to_string()).collect();
+        let theme_id =
+            theme::resolve_theme_id(&settings.appearance, theme::system_light(window), |id| ext.theme(id).is_some());
+        let chosen = ext.theme(theme_id).or_else(|| ext.themes().first()).cloned();
+        keymap::apply(&bindings, |id| actions.contains(id), cx);
+        if let Some(chosen) = chosen {
+            theme::apply(&chosen, Some(&settings.appearance.accent), Some(window), cx);
+        }
+    }
+
+    /// Closes every open dock (`toolwindow.hideAll`).
+    pub fn hide_all(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.dock.update(cx, |area, cx| {
+            for (_, placement, _) in DOCKS {
+                if area.is_dock_open(placement) {
+                    area.toggle_dock(placement, window, cx);
+                }
+            }
+        });
     }
 
     pub fn services(&self) -> &Services {

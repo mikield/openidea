@@ -5,9 +5,11 @@
 //! earlier one). The core only knows the extension points, never the features.
 //! Behaviour follows the React workbench (`src/workbench/contributions.ts`).
 
-use crate::actions::{ActionDef, RunAction};
+use crate::actions::ActionDef;
+use crate::keymap::KeymapPreset;
+use crate::theme::ThemeDef;
 use crate::{Backend, SettingsStore};
-use gpui::{AnyView, App, Entity, Global, KeyBinding, SharedString, Window};
+use gpui::{AnyView, App, Entity, Global, SharedString, Window};
 use std::rc::Rc;
 
 /// A feature: a UI crate that contributes to [`Extensions`].
@@ -90,13 +92,14 @@ pub struct Extensions {
     settings_pages: Vec<SettingsPage>,
     editor_area: Option<ViewBuilder>,
     actions: Vec<ActionDef>,
-    bindings: Vec<KeyBinding>,
+    keymaps: Vec<KeymapPreset>,
+    themes: Vec<ThemeDef>,
 }
 
 impl Global for Extensions {}
 
 /// Replaces the entry with the same id, else appends.
-fn upsert<T>(items: &mut Vec<T>, item: T, id: impl Fn(&T) -> &'static str) {
+fn upsert<T>(items: &mut Vec<T>, item: T, id: impl Fn(&T) -> &str) {
     match items.iter().position(|it| id(it) == id(&item)) {
         Some(ix) => items[ix] = item,
         None => items.push(item),
@@ -126,14 +129,7 @@ impl Extensions {
     }
 
     pub fn add_action(&mut self, action: ActionDef) -> &mut Self {
-        upsert(&mut self.actions, action, |a| a.id);
-        self
-    }
-
-    /// Binds `keystrokes` (`ctrl-s`, chords space-separated) to the action `id`,
-    /// in GPUI key `context` (e.g. `Workbench`) or everywhere.
-    pub fn bind(&mut self, keystrokes: &'static str, id: &'static str, context: Option<&str>) -> &mut Self {
-        self.bindings.push(KeyBinding::new(keystrokes, RunAction { id: id.into() }, context));
+        upsert(&mut self.actions, action, |a| &a.id);
         self
     }
 
@@ -178,8 +174,32 @@ impl Extensions {
     /// Actions sorted by id.
     pub fn actions(&self) -> Vec<&ActionDef> {
         let mut out: Vec<_> = self.actions.iter().collect();
-        out.sort_by_key(|a| a.id);
+        out.sort_by(|a, b| a.id.cmp(&b.id));
         out
+    }
+
+    /// A keymap preset; which one is used is the `keymap` setting.
+    pub fn add_keymap(&mut self, preset: KeymapPreset) -> &mut Self {
+        upsert(&mut self.keymaps, preset, |p| &p.id);
+        self
+    }
+
+    pub fn keymaps(&self) -> &[KeymapPreset] {
+        &self.keymaps
+    }
+
+    /// A theme; which one is used follows the appearance settings.
+    pub fn add_theme(&mut self, theme: ThemeDef) -> &mut Self {
+        upsert(&mut self.themes, theme, |t| &t.id);
+        self
+    }
+
+    pub fn themes(&self) -> &[ThemeDef] {
+        &self.themes
+    }
+
+    pub fn theme(&self, id: &str) -> Option<&ThemeDef> {
+        self.themes.iter().find(|t| t.id == id)
     }
 }
 
@@ -190,7 +210,7 @@ pub(crate) fn activate(plugins: &[Box<dyn Plugin>], cx: &mut App) {
         plugin.activate(&mut ext, cx);
         ext.plugins.push(plugin.id());
     }
-    cx.bind_keys(std::mem::take(&mut ext.bindings));
+    crate::workbench::contribute_tool_window_actions(&mut ext);
     cx.set_global(ext);
 }
 

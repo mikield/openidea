@@ -1,0 +1,1006 @@
+{
+  "id": "intellij-windows",
+  "title": "Windows",
+  "from": "87bf89d",
+  "bindings": {
+    "agents.findInConversation": [
+      "Ctrl+F"
+    ],
+    "agents.newTask": [
+      "Ctrl+Alt+Shift+I"
+    ],
+    "agents.sendToAgent": [],
+    "agents.showToolWindow": [],
+    "analyze.inspectFile": [
+      "Alt+Shift+I"
+    ],
+    "build.buildArtifacts": [],
+    "build.buildModule": [
+      "Ctrl+Shift+F9"
+    ],
+    "build.buildProject": [
+      "Ctrl+F9"
+    ],
+    "build.rebuildProject": [],
+    "code.addCaretNextOccurrence": [
+      "Alt+J"
+    ],
+    "code.addCaretsToLineEnds": [
+      "Alt+Shift+G"
+    ],
+    "code.applyQuickFix": [
+      "Alt+Shift+Enter"
+    ],
+    "code.autoIndentLines": [
+      "Ctrl+Alt+I"
+    ],
+    "code.collapseBlock": [
+      "Ctrl+Shift+."
+    ],
+    "code.collapseRecursively": [
+      "Ctrl+Alt+-"
+    ],
+    "code.commentBlock": [
+      "Ctrl+Shift+/"
+    ],
+    "code.commentLine": [
+      "Ctrl+/"
+    ],
+    "code.completeStatement": [
+      "Ctrl+Shift+Enter"
+    ],
+    "code.completion": [
+      "Ctrl+Space"
+    ],
+    "code.cyclicExpandWord": [
+      "Alt+/"
+    ],
+    "code.cyclicExpandWordBackward": [
+      "Alt+Shift+/"
+    ],
+    "code.deleteLine": [
+      "Ctrl+Y"
+    ],
+    "code.duplicateLine": [
+      "Ctrl+D"
+    ],
+    "code.expandAllToLevel1": [
+      "Ctrl+Shift+* 1"
+    ],
+    "code.expandAllToLevel2": [
+      "Ctrl+Shift+* 2"
+    ],
+    "code.expandAllToLevel3": [
+      "Ctrl+Shift+* 3"
+    ],
+    "code.expandAllToLevel4": [
+      "Ctrl+Shift+* 4"
+    ],
+    "code.expandAllToLevel5": [
+      "Ctrl+Shift+* 5"
+    ],
+    "code.expandRecursively": [
+      "Ctrl+Alt+="
+    ],
+    "code.expandToLevel1": [
+      "Ctrl+* 1"
+    ],
+    "code.expandToLevel2": [
+      "Ctrl+* 2"
+    ],
+    "code.expandToLevel3": [
+      "Ctrl+* 3"
+    ],
+    "code.expandToLevel4": [
+      "Ctrl+* 4"
+    ],
+    "code.expandToLevel5": [
+      "Ctrl+* 5"
+    ],
+    "code.expressionTypeInfo": [
+      "Ctrl+Shift+P"
+    ],
+    "code.extendSelection": [
+      "Ctrl+W"
+    ],
+    "code.fold": [
+      "Ctrl+-"
+    ],
+    "code.foldAll": [
+      "Ctrl+Shift+-"
+    ],
+    "code.foldSelection": [
+      "Ctrl+."
+    ],
+    "code.generate": [
+      "Alt+Insert"
+    ],
+    "code.implementMethods": [
+      "Ctrl+I"
+    ],
+    "code.insertLiveTemplate": [
+      "Ctrl+J"
+    ],
+    "code.joinLines": [
+      "Ctrl+Shift+J"
+    ],
+    "code.moveElementLeft": [
+      "Ctrl+Alt+Shift+Left"
+    ],
+    "code.moveElementRight": [
+      "Ctrl+Alt+Shift+Right"
+    ],
+    "code.moveLineDown": [
+      "Alt+Shift+Down"
+    ],
+    "code.moveLineUp": [
+      "Alt+Shift+Up"
+    ],
+    "code.moveStatementDown": [
+      "Ctrl+Shift+Down"
+    ],
+    "code.moveStatementUp": [
+      "Ctrl+Shift+Up"
+    ],
+    "code.optimizeImports": [
+      "Ctrl+Alt+O"
+    ],
+    "code.overrideMethods": [
+      "Ctrl+O"
+    ],
+    "code.parameterInfo": [
+      "Ctrl+P"
+    ],
+    "code.pasteAsPlainText": [
+      "Ctrl+Alt+Shift+V"
+    ],
+    "code.pasteFromHistory": [
+      "Ctrl+Shift+V"
+    ],
+    "code.quickDefinition": [
+      "Ctrl+Shift+I"
+    ],
+    "code.quickDocumentation": [
+      "Ctrl+Q"
+    ],
+    "code.reformat": [
+      "Ctrl+Alt+L"
+    ],
+    "code.reformatDialog": [
+      "Ctrl+Alt+Shift+L"
+    ],
+    "code.reverseLines": [],
+    "code.selectAllOccurrences": [
+      "Ctrl+Alt+Shift+J"
+    ],
+    "code.showErrorDescription": [
+      "Ctrl+F1"
+    ],
+    "code.showIntentions": [
+      "Alt+Enter"
+    ],
+    "code.shrinkSelection": [
+      "Ctrl+Shift+W"
+    ],
+    "code.sortLines": [],
+    "code.splitLine": [
+      "Ctrl+Enter"
+    ],
+    "code.startNewLine": [
+      "Shift+Enter"
+    ],
+    "code.startNewLineBefore": [
+      "Ctrl+Alt+Enter"
+    ],
+    "code.surroundWith": [
+      "Ctrl+Alt+T"
+    ],
+    "code.surroundWithLiveTemplate": [
+      "Ctrl+Alt+J"
+    ],
+    "code.toggleCase": [
+      "Ctrl+Shift+U"
+    ],
+    "code.unfold": [
+      "Ctrl+="
+    ],
+    "code.unfoldAll": [
+      "Ctrl+Shift+="
+    ],
+    "code.unselectOccurrence": [
+      "Alt+Shift+J"
+    ],
+    "code.unwrap": [
+      "Ctrl+Shift+Delete"
+    ],
+    "coverage.manageReports": [
+      "Ctrl+Alt+F6"
+    ],
+    "db.collapseAll": [],
+    "db.copyReference": [
+      "Ctrl+Alt+Shift+C"
+    ],
+    "db.ddlToClipboard": [
+      "Ctrl+Alt+Shift+G"
+    ],
+    "db.ddlToConsole": [
+      "Ctrl+Alt+Shift+B"
+    ],
+    "db.disconnect": [
+      "Ctrl+F2"
+    ],
+    "db.drop": [
+      "Delete"
+    ],
+    "db.duplicateSource": [
+      "Ctrl+D"
+    ],
+    "db.editData": [
+      "F4"
+    ],
+    "db.execute": [
+      "Ctrl+Enter"
+    ],
+    "db.goToDdl": [
+      "Ctrl+B"
+    ],
+    "db.goToReferencedTable": [],
+    "db.jumpToConsole": [
+      "Ctrl+Shift+F10"
+    ],
+    "db.modifyTable": [
+      "Ctrl+F6"
+    ],
+    "db.new": [
+      "Alt+Insert"
+    ],
+    "db.newColumn": [],
+    "db.newDataSource": [],
+    "db.newTable": [],
+    "db.openConsole": [
+      "Ctrl+Shift+Q"
+    ],
+    "db.properties": [
+      "Shift+Enter"
+    ],
+    "db.quickDoc": [
+      "Ctrl+Q"
+    ],
+    "db.refresh": [
+      "Ctrl+F5"
+    ],
+    "db.rename": [
+      "Shift+F6"
+    ],
+    "db.runSqlScript": [],
+    "db.showToolWindow": [],
+    "db.sqlScript": [],
+    "db.truncate": [],
+    "debug.attachToProcess": [
+      "Ctrl+Alt+F5"
+    ],
+    "debug.browseConsoleHistory": [
+      "Ctrl+Alt+E"
+    ],
+    "debug.evaluate": [
+      "Alt+F8"
+    ],
+    "debug.forceRunToCursor": [
+      "Ctrl+Alt+F9"
+    ],
+    "debug.forceStepInto": [
+      "Alt+Shift+F7"
+    ],
+    "debug.forceStepOver": [
+      "Alt+Shift+F8"
+    ],
+    "debug.jumpToSource": [
+      "F4"
+    ],
+    "debug.quickEvaluate": [
+      "Ctrl+Alt+F8",
+      "Alt+Button1"
+    ],
+    "debug.rerun": [
+      "Ctrl+F5"
+    ],
+    "debug.resume": [
+      "F9"
+    ],
+    "debug.runToCursor": [
+      "Alt+F9"
+    ],
+    "debug.setValue": [
+      "F2"
+    ],
+    "debug.showExecutionPoint": [
+      "Alt+F10"
+    ],
+    "debug.smartStepInto": [
+      "Shift+F7"
+    ],
+    "debug.stepInto": [
+      "F7"
+    ],
+    "debug.stepOut": [
+      "Shift+F8"
+    ],
+    "debug.stepOver": [
+      "F8"
+    ],
+    "debug.toggleBreakpoint": [
+      "Ctrl+F8"
+    ],
+    "debug.toggleTemporaryBreakpoint": [
+      "Ctrl+Alt+Shift+F8"
+    ],
+    "debug.viewBreakpoints": [
+      "Ctrl+Shift+F8"
+    ],
+    "diff.applyLeftSide": [
+      "Ctrl+Alt+R"
+    ],
+    "diff.applyRightSide": [
+      "Ctrl+Alt+A"
+    ],
+    "diff.jumpToSource": [
+      "F4"
+    ],
+    "diff.nextDifference": [
+      "F7"
+    ],
+    "diff.nextFile": [
+      "Alt+Shift+Right"
+    ],
+    "diff.prevDifference": [
+      "Shift+F7"
+    ],
+    "diff.prevFile": [
+      "Alt+Shift+Left"
+    ],
+    "diff.showSettings": [
+      "Ctrl+Shift+D"
+    ],
+    "editor.cloneCaretAbove": [
+      "Ctrl Ctrl+Up"
+    ],
+    "editor.cloneCaretBelow": [
+      "Ctrl Ctrl+Down"
+    ],
+    "editor.closeTab": [
+      "Ctrl+F4"
+    ],
+    "editor.codeBlockEnd": [
+      "Ctrl+]"
+    ],
+    "editor.codeBlockEndWithSelection": [
+      "Ctrl+Shift+]"
+    ],
+    "editor.codeBlockStart": [
+      "Ctrl+["
+    ],
+    "editor.codeBlockStartWithSelection": [
+      "Ctrl+Shift+["
+    ],
+    "editor.contextInfo": [
+      "Alt+Q"
+    ],
+    "editor.copyPath": [
+      "Ctrl+Shift+C"
+    ],
+    "editor.copyReference": [
+      "Ctrl+Alt+Shift+C"
+    ],
+    "editor.decreaseFontSize": [
+      "Alt+Shift+,"
+    ],
+    "editor.increaseFontSize": [
+      "Alt+Shift+."
+    ],
+    "editor.inlineCompletion.accept": [
+      "Tab"
+    ],
+    "editor.inlineCompletion.acceptWord": [
+      "Ctrl+Right"
+    ],
+    "editor.inlineCompletion.dismiss": [
+      "Escape"
+    ],
+    "editor.inlineCompletion.next": [
+      "Alt+]"
+    ],
+    "editor.inlineCompletion.previous": [
+      "Alt+["
+    ],
+    "editor.inlineCompletion.trigger": [
+      "Alt+\\"
+    ],
+    "editor.matchBrace": [
+      "Ctrl+Shift+M"
+    ],
+    "editor.nextSplitter": [
+      "Alt+Tab"
+    ],
+    "editor.nextTab": [
+      "Alt+Right"
+    ],
+    "editor.prevSplitter": [
+      "Alt+Shift+Tab"
+    ],
+    "editor.prevTab": [
+      "Alt+Left"
+    ],
+    "editor.reopenClosedTab": [],
+    "editor.scrollToCenter": [
+      "Ctrl+M"
+    ],
+    "editor.splitRight": [],
+    "editor.toggleColumnSelection": [
+      "Alt+Shift+Insert"
+    ],
+    "editor.toggleInsertState": [
+      "Insert"
+    ],
+    "editor.toggleZen": [],
+    "file.newScratchFile": [
+      "Ctrl+Alt+Shift+Insert"
+    ],
+    "file.openProject": [],
+    "file.reloadFromDisk": [
+      "Ctrl+Alt+Y"
+    ],
+    "file.save": [
+      "Ctrl+S"
+    ],
+    "file.settings": [
+      "Ctrl+Alt+S"
+    ],
+    "file.toggleReadOnly": [],
+    "find.field.newLine": [
+      "Ctrl+Shift+Enter"
+    ],
+    "find.field.recentSearches": [
+      "Alt+Down"
+    ],
+    "find.highlightUsages": [
+      "Ctrl+Shift+F7"
+    ],
+    "find.inFile": [
+      "Ctrl+F"
+    ],
+    "find.inPath": [
+      "Ctrl+Shift+F"
+    ],
+    "find.next": [
+      "F3",
+      "Ctrl+L"
+    ],
+    "find.openInWindow": [
+      "Alt+F7"
+    ],
+    "find.popup.nextResult": [
+      "F3",
+      "Ctrl+L"
+    ],
+    "find.popup.openResult": [
+      "F4"
+    ],
+    "find.popup.previousResult": [
+      "Shift+F3",
+      "Ctrl+Shift+L"
+    ],
+    "find.popup.recentSearches": [
+      "Alt+Down"
+    ],
+    "find.previous": [
+      "Shift+F3",
+      "Ctrl+Shift+L"
+    ],
+    "find.replaceInFile": [
+      "Ctrl+R"
+    ],
+    "find.replaceInPath": [
+      "Ctrl+Shift+R"
+    ],
+    "find.rerun": [
+      "Ctrl+F5"
+    ],
+    "find.showUsages": [
+      "Ctrl+Alt+F7"
+    ],
+    "find.usages": [
+      "Alt+F7"
+    ],
+    "github.createPullRequest": [
+      "Alt+Insert"
+    ],
+    "github.pullRequest.refresh": [
+      "Ctrl+F5"
+    ],
+    "github.pullRequest.timeline.refresh": [
+      "Ctrl+F5"
+    ],
+    "github.pullRequest.toggleViewed": [
+      "Ctrl+Shift+S"
+    ],
+    "github.refresh": [
+      "Ctrl+F5"
+    ],
+    "http.runAll": [],
+    "http.runRequest": [
+      "Ctrl+Enter"
+    ],
+    "image.actualSize": [
+      "Ctrl+/"
+    ],
+    "image.fitToWindow": [],
+    "image.toggleChessboard": [],
+    "image.zoomIn": [
+      "Ctrl+="
+    ],
+    "image.zoomOut": [
+      "Ctrl+-"
+    ],
+    "layout.restoreDefault": [
+      "Shift+F12"
+    ],
+    "localHistory.recentChanges": [
+      "Alt+Shift+C"
+    ],
+    "markdown.editorAndPreview": [],
+    "markdown.editorOnly": [],
+    "markdown.previewOnly": [],
+    "navigate.back": [
+      "Ctrl+Alt+Left",
+      "Button4"
+    ],
+    "navigate.callHierarchy": [
+      "Ctrl+Alt+H"
+    ],
+    "navigate.customRegion": [
+      "Ctrl+Alt+."
+    ],
+    "navigate.declaration": [
+      "Ctrl+B"
+    ],
+    "navigate.fileStructure": [
+      "Ctrl+F12"
+    ],
+    "navigate.findAction": [
+      "Ctrl+Shift+A"
+    ],
+    "navigate.forward": [
+      "Ctrl+Alt+Right",
+      "Button5"
+    ],
+    "navigate.gotoBookmark0": [
+      "Ctrl+0"
+    ],
+    "navigate.gotoBookmark1": [
+      "Ctrl+1"
+    ],
+    "navigate.gotoBookmark2": [
+      "Ctrl+2"
+    ],
+    "navigate.gotoBookmark3": [
+      "Ctrl+3"
+    ],
+    "navigate.gotoBookmark4": [
+      "Ctrl+4"
+    ],
+    "navigate.gotoBookmark5": [
+      "Ctrl+5"
+    ],
+    "navigate.gotoBookmark6": [
+      "Ctrl+6"
+    ],
+    "navigate.gotoBookmark7": [
+      "Ctrl+7"
+    ],
+    "navigate.gotoBookmark8": [
+      "Ctrl+8"
+    ],
+    "navigate.gotoBookmark9": [
+      "Ctrl+9"
+    ],
+    "navigate.gotoClass": [
+      "Ctrl+N"
+    ],
+    "navigate.gotoFile": [
+      "Ctrl+Shift+N"
+    ],
+    "navigate.gotoLine": [
+      "Ctrl+G"
+    ],
+    "navigate.gotoSymbol": [
+      "Ctrl+Alt+Shift+N"
+    ],
+    "navigate.gotoTest": [
+      "Ctrl+Shift+T"
+    ],
+    "navigate.implementation": [
+      "Ctrl+Alt+B",
+      "Ctrl+Alt+Button1"
+    ],
+    "navigate.lastEditLocation": [
+      "Ctrl+Shift+Backspace"
+    ],
+    "navigate.navigationBar": [
+      "Alt+Home"
+    ],
+    "navigate.nextEditLocation": [],
+    "navigate.nextError": [
+      "F2"
+    ],
+    "navigate.nextHighlightedUsage": [
+      "Ctrl+Alt+Down"
+    ],
+    "navigate.nextMethod": [
+      "Alt+Down"
+    ],
+    "navigate.nextOccurrence": [
+      "Ctrl+Alt+Down"
+    ],
+    "navigate.prevError": [
+      "Shift+F2"
+    ],
+    "navigate.prevHighlightedUsage": [
+      "Ctrl+Alt+Up"
+    ],
+    "navigate.prevOccurrence": [
+      "Ctrl+Alt+Up"
+    ],
+    "navigate.previousMethod": [
+      "Alt+Up"
+    ],
+    "navigate.recentFiles": [
+      "Ctrl+E"
+    ],
+    "navigate.recentLocations": [
+      "Ctrl+Shift+E"
+    ],
+    "navigate.searchEverywhere": [
+      "Shift Shift"
+    ],
+    "navigate.searchText": [
+      "Ctrl+Alt+Shift+E"
+    ],
+    "navigate.selectIn": [
+      "Alt+F1"
+    ],
+    "navigate.showBookmarks": [
+      "Shift+F11"
+    ],
+    "navigate.showFilePath": [
+      "Ctrl+Alt+F12"
+    ],
+    "navigate.superMethod": [
+      "Ctrl+U"
+    ],
+    "navigate.switcher": [
+      "Ctrl+Tab"
+    ],
+    "navigate.switcherBack": [
+      "Ctrl+Shift+Tab"
+    ],
+    "navigate.toggleBookmark": [
+      "F11"
+    ],
+    "navigate.toggleBookmark0": [
+      "Ctrl+Shift+0"
+    ],
+    "navigate.toggleBookmark1": [
+      "Ctrl+Shift+1"
+    ],
+    "navigate.toggleBookmark2": [
+      "Ctrl+Shift+2"
+    ],
+    "navigate.toggleBookmark3": [
+      "Ctrl+Shift+3"
+    ],
+    "navigate.toggleBookmark4": [
+      "Ctrl+Shift+4"
+    ],
+    "navigate.toggleBookmark5": [
+      "Ctrl+Shift+5"
+    ],
+    "navigate.toggleBookmark6": [
+      "Ctrl+Shift+6"
+    ],
+    "navigate.toggleBookmark7": [
+      "Ctrl+Shift+7"
+    ],
+    "navigate.toggleBookmark8": [
+      "Ctrl+Shift+8"
+    ],
+    "navigate.toggleBookmark9": [
+      "Ctrl+Shift+9"
+    ],
+    "navigate.toggleBookmarkWithMnemonic": [
+      "Ctrl+F11"
+    ],
+    "navigate.typeDeclaration": [
+      "Ctrl+Shift+B"
+    ],
+    "navigate.typeHierarchy": [
+      "Ctrl+H"
+    ],
+    "project.collapseAll": [
+      "Ctrl+-"
+    ],
+    "project.compareWith": [
+      "Ctrl+D"
+    ],
+    "project.copy": [
+      "Ctrl+C",
+      "Ctrl+Insert"
+    ],
+    "project.copyAbsolutePath": [
+      "Ctrl+Shift+C"
+    ],
+    "project.copyElement": [
+      "F5"
+    ],
+    "project.cut": [
+      "Ctrl+X",
+      "Shift+Delete"
+    ],
+    "project.delete": [
+      "Delete"
+    ],
+    "project.expandAll": [
+      "Ctrl+="
+    ],
+    "project.findUsages": [
+      "Alt+F7"
+    ],
+    "project.move": [
+      "F6"
+    ],
+    "project.newFile": [
+      "Alt+Insert"
+    ],
+    "project.newInThisDirectory": [
+      "Ctrl+Alt+Insert"
+    ],
+    "project.open": [
+      "F4"
+    ],
+    "project.optimizeImports": [
+      "Ctrl+Alt+O"
+    ],
+    "project.paste": [
+      "Ctrl+V",
+      "Shift+Insert"
+    ],
+    "project.reformatCode": [
+      "Ctrl+Alt+L"
+    ],
+    "project.reloadFromDisk": [
+      "Ctrl+Alt+Y"
+    ],
+    "project.rename": [
+      "Shift+F6"
+    ],
+    "refactor.changeSignature": [
+      "Ctrl+F6"
+    ],
+    "refactor.extractConstant": [
+      "Ctrl+Alt+C"
+    ],
+    "refactor.extractField": [
+      "Ctrl+Alt+F"
+    ],
+    "refactor.extractMethod": [
+      "Ctrl+Alt+M"
+    ],
+    "refactor.extractParameter": [
+      "Ctrl+Alt+P"
+    ],
+    "refactor.extractVariable": [
+      "Ctrl+Alt+V"
+    ],
+    "refactor.inline": [
+      "Ctrl+Alt+N"
+    ],
+    "refactor.move": [
+      "F6"
+    ],
+    "refactor.rename": [
+      "Shift+F6"
+    ],
+    "refactor.safeDelete": [
+      "Alt+Delete"
+    ],
+    "refactor.thisMenu": [
+      "Ctrl+Alt+Shift+T"
+    ],
+    "run.chooseConfig": [
+      "Alt+Shift+F10"
+    ],
+    "run.chooseDebugConfig": [
+      "Alt+Shift+F9"
+    ],
+    "run.debug": [
+      "Shift+F9"
+    ],
+    "run.debugContext": [],
+    "run.editConfigs": [],
+    "run.rerun": [
+      "Ctrl+F5"
+    ],
+    "run.run": [
+      "Shift+F10"
+    ],
+    "run.runContext": [
+      "Ctrl+Shift+F10"
+    ],
+    "run.stop": [
+      "Ctrl+F2"
+    ],
+    "run.updateApplication": [
+      "Ctrl+F10"
+    ],
+    "runAnything.show": [
+      "Ctrl Ctrl"
+    ],
+    "services.addService": [
+      "Alt+Insert"
+    ],
+    "terminal.new": [
+      "Ctrl+Shift+T"
+    ],
+    "toolwindow.bookmarks": [
+      "Alt+2"
+    ],
+    "toolwindow.closeContent": [
+      "Ctrl+F4",
+      "Ctrl+Shift+F4"
+    ],
+    "toolwindow.commit": [
+      "Alt+0"
+    ],
+    "toolwindow.debug": [
+      "Alt+5"
+    ],
+    "toolwindow.find": [
+      "Alt+3"
+    ],
+    "toolwindow.focusEditor": [
+      "Escape"
+    ],
+    "toolwindow.git": [
+      "Alt+9"
+    ],
+    "toolwindow.hideActive": [
+      "Shift+Escape"
+    ],
+    "toolwindow.hideAll": [
+      "Ctrl+Shift+F12"
+    ],
+    "toolwindow.jumpToLast": [
+      "F12"
+    ],
+    "toolwindow.maximize": [
+      "Ctrl+Shift+'"
+    ],
+    "toolwindow.problems": [
+      "Alt+6"
+    ],
+    "toolwindow.project": [
+      "Alt+1"
+    ],
+    "toolwindow.resizeDown": [
+      "Ctrl+Alt+Shift+Down"
+    ],
+    "toolwindow.resizeLeft": [
+      "Ctrl+Alt+Shift+Left"
+    ],
+    "toolwindow.resizeRight": [
+      "Ctrl+Alt+Shift+Right"
+    ],
+    "toolwindow.resizeUp": [
+      "Ctrl+Alt+Shift+Up"
+    ],
+    "toolwindow.run": [
+      "Alt+4"
+    ],
+    "toolwindow.services": [
+      "Alt+8"
+    ],
+    "toolwindow.structure": [
+      "Alt+7"
+    ],
+    "toolwindow.terminal": [
+      "Alt+F12"
+    ],
+    "usages.rerun": [
+      "Ctrl+F5"
+    ],
+    "vcs.annotate": [],
+    "vcs.branches": [
+      "Ctrl+Shift+`"
+    ],
+    "vcs.changelist.edit": [
+      "F2",
+      "Shift+F6"
+    ],
+    "vcs.changelist.move": [
+      "Alt+Shift+M"
+    ],
+    "vcs.commit": [
+      "Ctrl+K"
+    ],
+    "vcs.commitAndPush": [
+      "Ctrl+Alt+K"
+    ],
+    "vcs.localHistory": [],
+    "vcs.log.copyRevision": [
+      "Ctrl+Alt+Shift+C"
+    ],
+    "vcs.log.goToRef": [
+      "Ctrl+F"
+    ],
+    "vcs.newBranch": [
+      "Ctrl+Alt+N"
+    ],
+    "vcs.nextChange": [
+      "Ctrl+Alt+Shift+Down"
+    ],
+    "vcs.operations": [
+      "Alt+`"
+    ],
+    "vcs.prevChange": [
+      "Ctrl+Alt+Shift+Up"
+    ],
+    "vcs.push": [
+      "Ctrl+Shift+K"
+    ],
+    "vcs.rollback": [
+      "Ctrl+Alt+Z"
+    ],
+    "vcs.showDiff": [
+      "Ctrl+D"
+    ],
+    "vcs.showMessageHistory": [
+      "Ctrl+M"
+    ],
+    "vcs.toggleAmend": [
+      "Alt+M"
+    ],
+    "vcs.update": [
+      "Ctrl+T"
+    ],
+    "view.quickSwitchScheme": [
+      "Ctrl+`"
+    ],
+    "view.resetZoom": [
+      "Alt+Shift+0"
+    ],
+    "view.zoomIn": [
+      "Alt+Shift+="
+    ],
+    "view.zoomOut": [
+      "Alt+Shift+-"
+    ],
+    "web.openInBrowser": [
+      "Ctrl+Shift+F10"
+    ],
+    "window.next": [
+      "Ctrl+Alt+]"
+    ],
+    "window.nextTab": [
+      "Ctrl+Alt+PageDown"
+    ],
+    "window.previous": [
+      "Ctrl+Alt+["
+    ],
+    "window.previousTab": [
+      "Ctrl+Alt+PageUp"
+    ],
+    "window.toggleFullScreen": [],
+    "workbench.stopBackgroundProcesses": [
+      "Ctrl+Shift+F2"
+    ]
+  }
+}

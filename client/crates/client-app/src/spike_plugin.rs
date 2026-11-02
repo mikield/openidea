@@ -1,6 +1,7 @@
 //! The spike's project view as one plugin: it provides the editor area and the
-//! `file.save` action, built only on `client-core` extension points. Step 5 of
-//! wave 1 splits it into a project-tree plugin and core services.
+//! `file.save` action (its keys come from the keymap), built only on
+//! `client-core` extension points. Step 5 of wave 1 splits it into a
+//! project-tree plugin and core services.
 
 use crate::workspace::Workspace;
 use client_core::{ActionDef, Extensions, Plugin};
@@ -45,8 +46,6 @@ impl Plugin for SpikeWorkspace {
                 }
             })
             .category("File"),
-        )
-        .bind("ctrl-s", "file.save", Some("Workbench"))
-        .bind("cmd-s", "file.save", Some("Workbench"));
+        );
     }
 }

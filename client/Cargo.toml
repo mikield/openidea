@@ -25,6 +25,7 @@ ide-sdk = { path = "../crates/ide-sdk" }
 # internal
 client-rpc = { path = "crates/client-rpc" }
 client-core = { path = "crates/client-core" }
+plugin-presets = { path = "crates/plugin-presets" }
 
 # GPUI as gpui-component pins it (a published snapshot of Zed's gpui), pinned exactly.
 gpui = { package = "gpui-pre", version = "=0.3.10" }
