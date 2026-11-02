@@ -86,7 +86,8 @@ async fn project_tree_and_document_round_trip() {
 #[tokio::test(flavor = "multi_thread")]
 async fn rust_analyzer_diagnostics_and_completion() {
     let Some(server) = server() else { return };
-    if std::process::Command::new("rust-analyzer").arg("--version").output().is_err() {
+    // A rustup proxy without the component starts but fails: check the exit status too.
+    if !std::process::Command::new("rust-analyzer").arg("--version").output().is_ok_and(|o| o.status.success()) {
         eprintln!("skipped: rust-analyzer not installed");
         return;
     }
@@ -130,7 +131,12 @@ async fn rust_analyzer_diagnostics_and_completion() {
     assert!(labels.iter().any(|l| l.starts_with("push")), "{labels:?}");
 }
 
-/// The server reports canonical paths (`/tmp` may be a symlink).
+/// The server reports canonical paths (`/tmp` may be a symlink), and on Windows without
+/// the `\\?\` prefix `canonicalize` adds (`\\?\C:\…` and `C:/…` differ as paths).
 fn dunce_canonical(p: &Path) -> PathBuf {
-    std::fs::canonicalize(p).unwrap()
+    let path = std::fs::canonicalize(p).unwrap();
+    match path.to_str().and_then(|s| s.strip_prefix(r"\\?\")) {
+        Some(plain) if !plain.starts_with("UNC\\") => PathBuf::from(plain),
+        _ => path,
+    }
 }

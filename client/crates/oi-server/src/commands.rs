@@ -3,6 +3,10 @@
 //! Names start with `oi_` so they never collide with upstream commands. A
 //! client finds out it talks to `oi-server` (and not a plain `openidea-server`,
 //! say on a remote host) by [`SERVER_INFO`] being in `commands`.
+//!
+//! Every `invoke` passes upstream's trust gate (`Host::authorize_command`): only
+//! commands with an allowlisted prefix (`fs_`, `doc_`, `settings_`, …) run
+//! without a trusted project open in the window, and `oi_` is not one of them.
 
 use ide_core::IdeResult;
 use ide_host::rpc::Dispatcher;

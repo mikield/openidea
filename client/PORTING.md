@@ -93,6 +93,11 @@ is GPL: never copy from it.
   typed prefix. rust-analyzer returns duplicates (`is_empty` twice), not merged yet.
 - **Diagnostics:** push them into the editor sorted by range and call `state.refresh(cx)`.
   Squiggles are not visible under Mesa llvmpipe (hover shows the diagnostic); unverified on GPUs.
+- **Trust gate:** every `invoke`, ours included, goes through upstream's `authorize_command`:
+  outside its prefix allowlist (`fs_`, `doc_`, `settings_`, … in `ide-host/src/trust.rs`) a
+  command needs a trusted project open in the window, so `oi_*` commands do too.
+- **Windows paths:** `std::fs::canonicalize` returns `\\?\C:\…`, the server reports `C:/…`;
+  strip the verbatim prefix before comparing (or use `dunce`).
 - **Backend:** language servers start only for trusted projects (`project_trust_set`).
   A stale `baseVersion` in `doc_edit` is refused, so `DocPatched` must be merged (not done).
 - **Ecosystem:** many GPUI forks on crates.io; gpui-component pins `gpui-pre`. The Linux

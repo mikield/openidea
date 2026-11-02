@@ -16,6 +16,13 @@ async fn serves_standard_and_own_commands() {
         assert!(commands.iter().any(|x| x == c), "oi-server lacks {c}");
     }
 
+    // Upstream's trust gate covers our commands too: outside its allowlist they need a
+    // trusted project open in the window.
+    let refused = conn.invoke::<Value>(oi_server::commands::SERVER_INFO, json!({})).await;
+    assert!(refused.is_err(), "ran without a project: {refused:?}");
+    let project = tempfile::tempdir().unwrap();
+    conn.trust_project(project.path()).await.unwrap();
+    conn.open_project(project.path()).await.unwrap();
     let own: Value = conn.invoke(oi_server::commands::SERVER_INFO, json!({})).await.unwrap();
     assert_eq!(own["name"], "oi-server");
 }
