@@ -137,8 +137,8 @@ fn tool_windows_dock_toggle_and_their_layout_persists(cx: &mut TestAppContext) {
 
     let (workbench, mut vcx) = open(&services, &layout, cx);
     let vcx = &mut vcx;
-    // Each anchor's first tool window is the selected tab of its open dock.
-    assert_eq!(visible(&workbench, vcx), ["project", "problems"]);
+    // Each anchor's first tool window is its dock's selected tab; only the left dock is open (React).
+    assert_eq!(visible(&workbench, vcx), ["project"]);
     workbench.read_with(vcx, |wb, cx| {
         let area = wb.dock().read(cx);
         assert!(area.has_dock(DockPlacement::Left) && area.has_dock(DockPlacement::Bottom));

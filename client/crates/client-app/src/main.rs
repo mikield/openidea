@@ -64,6 +64,7 @@ fn main() -> anyhow::Result<()> {
             Box::new(plugin_search::SearchPlugin),
             Box::new(plugin_menu::MenuPlugin),
         ];
+        client_core::register_fonts(cx);
         client_core::activate(&plugins, cx);
 
         let backend = cx.new(|cx| Backend::new(conn, handle, info, project, events, cx));

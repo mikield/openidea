@@ -539,23 +539,31 @@ fn empty_hints(cx: &App) -> gpui::Div {
         ("Navigation Bar", "navigate.navigationBar"),
     ];
     let (muted, link) = (token(cx, "fg-secondary"), token(cx, "link"));
-    let rows = hints.into_iter().filter_map(|(title, action)| {
-        let keys = shortcut_label(cx, action)?;
-        Some(
-            h_flex()
-                .gap(px(16.))
-                .child(div().w(px(160.)).flex().justify_end().text_color(muted).child(title))
-                .child(div().w(px(160.)).text_color(link).child(keys)),
-        )
-    });
+    let rows: Vec<_> =
+        hints.into_iter().filter_map(|(title, action)| Some((title, shortcut_label(cx, action)?))).collect();
+    // React's `dl`: two auto-sized columns 16px apart, 18px rows 8px apart, centred as a block.
+    let column = |items: Vec<SharedString>, right: bool| {
+        v_flex()
+            .gap(px(8.))
+            .when(right, |c| c.items_end())
+            .children(items.into_iter().map(|t| div().h(px(18.)).child(t)))
+    };
     v_flex()
         .size_full()
         .items_center()
         .justify_center()
-        .gap(px(10.))
         .text_size(px(13.))
-        .children(rows)
-        .child(div().pt(px(6.)).text_color(token(cx, "fg-subtle")).child("Open a file from the Project tool window"))
+        .line_height(px(18.))
+        .child(
+            h_flex()
+                .items_start()
+                .gap(px(16.))
+                .child(column(rows.iter().map(|(t, _)| SharedString::from(*t)).collect(), true).text_color(muted))
+                .child(
+                    column(rows.iter().map(|(_, k)| SharedString::from(k.clone())).collect(), false).text_color(link),
+                ),
+        )
+        .child(div().pt(px(14.)).text_color(token(cx, "fg-subtle")).child("Drop files here to open them"))
 }
 
 impl Render for EditorArea {

@@ -5,11 +5,11 @@ use crate::plugin::{Extensions, StatusAlign, TitleItem};
 use crate::theme::token;
 use crate::{Icon, RunAction};
 use gpui::{
-    AnyView, App, AppContext, Context, IntoElement, ParentElement, Render, RenderOnce, SharedString, Styled, Window,
-    div, px,
+    AnyView, App, AppContext, Context, FontWeight, IntoElement, ParentElement, Render, RenderOnce, SharedString,
+    Styled, Window, div, px,
 };
 use gpui_component::button::{Button, ButtonVariants as _};
-use gpui_component::{Sizable as _, TitleBar, h_flex};
+use gpui_component::{TitleBar, h_flex};
 use std::rc::Rc;
 
 /// `--project-color-N` slots, as React's `projectColor.ts` counts them.
@@ -60,9 +60,9 @@ impl RenderOnce for WorkbenchTitleBar {
             h_flex()
                 .flex_1()
                 .h_full()
-                .gap(px(10.))
-                .pl(px(6.))
-                .pr(px(4.))
+                .gap(px(16.))
+                .pl(px(10.))
+                .pr(px(8.))
                 .text_size(px(13.))
                 .text_color(token(cx, "fg"))
                 .children(self.left)
@@ -78,7 +78,12 @@ struct ProjectWidget(SharedString);
 impl Render for ProjectWidget {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let avatar = token(cx, &format!("project-color-{}", project_color_index(&self.0)));
+        // React's `.button`: 30px high, 8px padding and corners; the avatar's initials 11px semibold,
+        // the name medium, then a 12px chevron.
         h_flex()
+            .h(px(30.))
+            .px(px(8.))
+            .rounded(px(8.))
             .gap(px(6.))
             .child(
                 div()
@@ -88,11 +93,13 @@ impl Render for ProjectWidget {
                     .flex()
                     .items_center()
                     .justify_center()
-                    .text_size(px(12.))
+                    .text_size(px(11.))
+                    .font_weight(FontWeight::SEMIBOLD)
                     .text_color(token(cx, "fg-on-accent"))
                     .child(project_initials(&self.0)),
             )
-            .child(self.0.clone())
+            .child(div().font_weight(FontWeight::MEDIUM).child(self.0.clone()))
+            .child(Icon::new("chevron-down").size(px(12.)).color(token(cx, "fg-icon")))
     }
 }
 
@@ -108,9 +115,10 @@ impl Render for ActionButton {
         let id = self.id;
         Button::new(SharedString::from(format!("title-{id}")))
             .ghost()
-            .small()
+            .size(px(30.))
+            .rounded(px(8.))
             .tooltip(self.tooltip)
-            .child(Icon::new(self.icon).size(px(16.)).color(token(cx, "fg-icon")))
+            .child(Icon::new(self.icon).size(px(18.)).color(token(cx, "fg-icon")))
             .on_click(move |_, window, cx| window.dispatch_action(Box::new(RunAction { id: id.into() }), cx))
     }
 }

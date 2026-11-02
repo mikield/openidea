@@ -35,7 +35,7 @@ mod workbench;
 mod workbench_tests;
 
 pub use actions::{ActionDef, ActionRun, HideToolWindow, MoveToolWindow, RunAction};
-pub use assets::Assets;
+pub use assets::{Assets, register_fonts};
 pub use backend::Backend;
 pub use diagnostics::{DiagnosticsChanged, DiagnosticsStore};
 pub use editors::{EditorEvent, Editors};

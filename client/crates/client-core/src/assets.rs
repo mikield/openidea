@@ -34,3 +34,23 @@ impl AssetSource for Assets {
         }
     }
 }
+
+/// React's fonts (OFL, `fonts/*-LICENSE.txt`, `fonts/*-OFL.txt`): Inter for the UI and JetBrains
+/// Mono for the editor, so the client looks the same without them installed.
+const FONTS: [&[u8]; 8] = [
+    include_bytes!("../fonts/Inter-Regular.ttf"),
+    include_bytes!("../fonts/Inter-Medium.ttf"),
+    include_bytes!("../fonts/Inter-SemiBold.ttf"),
+    include_bytes!("../fonts/Inter-Bold.ttf"),
+    include_bytes!("../fonts/JetBrainsMono-Regular.ttf"),
+    include_bytes!("../fonts/JetBrainsMono-Italic.ttf"),
+    include_bytes!("../fonts/JetBrainsMono-Bold.ttf"),
+    include_bytes!("../fonts/JetBrainsMono-BoldItalic.ttf"),
+];
+
+/// Registers the bundled fonts; call once at start, before the first window.
+pub fn register_fonts(cx: &gpui::App) {
+    if let Err(e) = cx.text_system().add_fonts(FONTS.iter().map(|f| Cow::Borrowed(*f)).collect()) {
+        tracing::warn!("bundled fonts: {e}");
+    }
+}

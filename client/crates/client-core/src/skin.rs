@@ -173,6 +173,7 @@ impl TabGroupRenderer for Island {
     fn frame(&self, _: &TabGroupContext, _: &mut Window, cx: &mut App) -> Stateful<Div> {
         div()
             .id("island")
+            .group("island")
             .m(px(GAP / 2.))
             .rounded(px(RADIUS))
             .overflow_hidden()
@@ -189,7 +190,7 @@ impl TabGroupRenderer for Island {
         let id: SharedString = group.active_panel().map(|p| p.panel_name(cx)).unwrap_or_default().into();
         let (selected, hover, muted) =
             (token(cx, "bg-tab-selected"), token(cx, "bg-tab-hover"), token(cx, "fg-secondary"));
-        let drop_border = token(cx, "accent");
+        let (drop_border, chevron) = (token(cx, "accent"), token(cx, "fg-icon"));
         let single = group.panels().len() == 1;
         // One tool window: its title. Several sharing the island: their titles as tabs.
         let titles: Vec<AnyElement> = (0..group.panels().len())
@@ -198,13 +199,18 @@ impl TabGroupRenderer for Island {
                 let name = title(group, ix, cx);
                 div()
                     .id(("island-title", ix))
-                    .px(px(if single { 0. } else { 8. }))
-                    .py(px(4.))
-                    .rounded(px(6.))
+                    .flex()
+                    .items_center()
+                    .gap(px(4.))
+                    .h(px(24.))
+                    .px(px(if single { 4. } else { 8. }))
+                    .rounded(px(if single { 4. } else { 6. }))
                     .when(ix == active, |t| t.font_weight(FontWeight::SEMIBOLD))
                     .when(!single && ix == active, |t| t.bg(selected))
                     .when(!single && ix != active, |t| t.text_color(muted).hover(move |t| t.bg(hover)))
                     .child(name.clone())
+                    // React's title button: the title, then a chevron (the tool window's views).
+                    .when(single, |t| t.child(Icon::new("chevron-down").size(px(12.)).color(chevron)))
                     .on_click(move |_, window, cx| select.select_tab(ix, window, cx))
                     .when_some(group.drag_panel(ix, cx), move |t, drag| {
                         t.on_drag(drag, move |drag: &DragPanel, offset, _, cx| {
@@ -223,12 +229,13 @@ impl TabGroupRenderer for Island {
             .flex_none()
             .flex()
             .items_center()
-            .pl(px(12.))
+            .pl(px(8.))
             .pr(px(6.))
-            .gap(px(4.))
+            .gap(px(6.))
             .children(titles)
             .child(div().flex_1().h_full())
-            .child(header_controls(id, cx))
+            // React shows the header's actions while the pointer is over the tool window.
+            .child(div().invisible().group_hover("island", |c| c.visible()).child(header_controls(id, cx)))
             // Dropping a tool window on a header puts it in this island.
             .when(group.is_droppable(), |h| {
                 h.drag_over::<DragPanel>(move |h, _, _, _| h.border_b_2().border_color(drop_border)).on_drop(

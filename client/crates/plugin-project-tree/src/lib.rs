@@ -233,14 +233,23 @@ impl Render for ProjectTree {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let active = self.editors.read(cx).active().map(Path::to_path_buf);
         let (hover, selected) = (token(cx, "bg-tree-hover"), token(cx, "bg-tree-selected"));
-        let (muted, danger) = (token(cx, "fg-muted"), token(cx, "danger"));
+        let (muted, danger, chevron) = (token(cx, "fg-muted"), token(cx, "danger"), token(cx, "fg-icon"));
         let root_open = self.expanded.contains(&self.root);
         // The root node: module icon, project name, its path (React's project view).
         let root = row_frame("project-root", 0, hover)
-            .child(Icon::new(if root_open { "chevron-down" } else { "chevron-right" }).size(px(16.)))
-            .child(Icon::new("module").size(px(16.)))
-            .child(div().font_weight(FontWeight::SEMIBOLD).child(self.name.clone()))
-            .child(div().text_color(muted).truncate().child(self.root.display().to_string().replace('\\', "/")))
+            .child(Icon::new(if root_open { "chevron-down" } else { "chevron-right" }).size(px(16.)).color(chevron))
+            .child(
+                content()
+                    .child(Icon::new("module").size(px(16.)))
+                    .child(div().font_weight(FontWeight::SEMIBOLD).child(self.name.clone()))
+                    .child(
+                        div()
+                            .ml(px(4.))
+                            .text_color(muted)
+                            .truncate()
+                            .child(self.root.display().to_string().replace('\\', "/")),
+                    ),
+            )
             .on_click(cx.listener(|tree, _: &ClickEvent, _, cx| tree.toggle_root(cx)));
         let rows = root_open.then(|| {
             self.rows
@@ -249,8 +258,8 @@ impl Render for ProjectTree {
                 .map(|(ix, row)| {
                     let dir = row.entry.is_dir();
                     let chevron = match (dir, self.expanded.contains(&row.entry.path.0)) {
-                        (true, true) => Icon::new("chevron-down").size(px(16.)).into_any_element(),
-                        (true, false) => Icon::new("chevron-right").size(px(16.)).into_any_element(),
+                        (true, true) => Icon::new("chevron-down").size(px(16.)).color(chevron).into_any_element(),
+                        (true, false) => Icon::new("chevron-right").size(px(16.)).color(chevron).into_any_element(),
                         _ => div().size(px(16.)).flex_none().into_any_element(),
                     };
                     let icon = if dir {
@@ -266,12 +275,13 @@ impl Render for ProjectTree {
                     row_frame(ix, row.depth + 1, hover)
                         .when(active.as_deref() == Some(row.entry.path.0.as_path()), |r| r.bg(selected))
                         .child(chevron)
-                        .child(Icon::new(icon).size(px(16.)))
                         .child(
-                            div()
-                                .truncate()
-                                .when(row.entry.ignored || row.entry.excluded, |d| d.text_color(muted))
-                                .child(row.entry.name.clone()),
+                            content().child(Icon::new(icon).size(px(16.))).child(
+                                div()
+                                    .truncate()
+                                    .when(row.entry.ignored || row.entry.excluded, |d| d.text_color(muted))
+                                    .child(row.entry.name.clone()),
+                            ),
                         )
                         .on_click(cx.listener(move |tree, _: &ClickEvent, _, cx| tree.click_row(ix, cx)))
                 })
@@ -289,6 +299,11 @@ impl Render for ProjectTree {
     }
 }
 
+/// React's `.content` after the chevron: the icon and the label 5px apart.
+fn content() -> gpui::Div {
+    div().flex().items_center().gap(px(5.)).min_w_0()
+}
+
 /// A tree row: `--h-row`, 20px per level, rounded hover (`--radius-row`).
 fn row_frame(id: impl Into<gpui::ElementId>, depth: usize, hover: gpui::Hsla) -> gpui::Stateful<gpui::Div> {
     div()
@@ -298,8 +313,8 @@ fn row_frame(id: impl Into<gpui::ElementId>, depth: usize, hover: gpui::Hsla) ->
         .items_center()
         .gap(px(4.))
         .pl(px(4. + depth as f32 * 20.))
-        .pr(px(6.))
-        .rounded(px(4.))
+        .pr(px(8.))
+        .rounded(px(5.))
         .hover(move |r| r.bg(hover))
 }
 

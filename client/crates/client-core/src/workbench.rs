@@ -37,9 +37,10 @@ const LAYOUT_VERSION: usize = 1;
 const SAVE_DELAY: Duration = Duration::from_millis(500);
 
 const DOCKS: [(Anchor, DockPlacement, Pixels); 3] = [
-    (Anchor::Left, DockPlacement::Left, px(260.)),
-    (Anchor::Right, DockPlacement::Right, px(260.)),
-    (Anchor::Bottom, DockPlacement::Bottom, px(200.)),
+    // React's `DEFAULT_SIZES` (240, 300, 280) are the islands; a dock adds the 6px gap around one.
+    (Anchor::Left, DockPlacement::Left, px(246.)),
+    (Anchor::Right, DockPlacement::Right, px(306.)),
+    (Anchor::Bottom, DockPlacement::Bottom, px(286.)),
 ];
 
 /// Tool window id (or [`EDITOR_AREA`]) → its panel in the dock.
@@ -304,6 +305,10 @@ impl Workbench {
                     }
                     None => area.remove_dock(placement, window, cx),
                 }
+                // React opens only the Project tool window at first.
+                if anchor != Anchor::Left && area.is_dock_open(placement) {
+                    area.toggle_dock(placement, window, cx);
+                }
             }
         });
     }
@@ -384,8 +389,12 @@ struct Stripe {
     anchor: Anchor,
 }
 
-/// `--stripe-button-w` is the hover area; the visible button is 32px, icons 20px.
-const STRIPE_WIDTH: f32 = 40.;
+/// gpui-component's `dock_area::CLOSED_BOTTOM_STRIP` (not exported).
+const CLOSED_BOTTOM_STRIP: f32 = 29.;
+
+/// React's `.stripe`: 44px wide (padding 0 6px 6px), 32px buttons with 8px corners and 18px icons,
+/// 2px apart.
+const STRIPE_WIDTH: f32 = 44.;
 
 /// A stripe button being dragged to another stripe.
 #[derive(Clone)]
@@ -401,9 +410,9 @@ impl Render for StripeDrag {
             .flex()
             .items_center()
             .justify_center()
-            .rounded(px(6.))
+            .rounded(px(8.))
             .bg(theme::token(cx, "bg-stripe-selected"))
-            .child(Icon::new(self.icon.clone()).size(px(20.)))
+            .child(Icon::new(self.icon.clone()).size(px(18.)))
     }
 }
 
@@ -469,11 +478,11 @@ impl Workbench {
             .flex()
             .items_center()
             .justify_center()
-            .rounded(px(6.))
+            .rounded(px(8.))
             .when(visible, |b| b.bg(selected))
             .hover(move |b| b.bg(hover))
             .tooltip(move |window, cx| gpui_component::tooltip::Tooltip::new(title.clone()).build(window, cx))
-            .child(Icon::new(stripe.icon.clone()).size(px(20.)))
+            .child(Icon::new(stripe.icon.clone()).size(px(18.)))
             .on_click(cx.listener(move |wb, _: &ClickEvent, window, cx| {
                 wb.toggle_tool_window(id, window, cx);
                 cx.notify();
@@ -487,8 +496,8 @@ impl Workbench {
         v_flex()
             .w_full()
             .items_center()
-            .gap(px(4.))
-            .rounded(px(6.))
+            .gap(px(2.))
+            .rounded(px(8.))
             .when(grow, |z| z.flex_1())
             .min_h(px(32.))
             .children(stripes.iter().map(|s| self.stripe_button(s, cx)).collect::<Vec<_>>())
@@ -510,8 +519,9 @@ impl Workbench {
             .flex_none()
             .h_full()
             .items_center()
-            .p(px(4.))
-            .gap(px(4.))
+            .px(px(6.))
+            .pb(px(6.))
+            .gap(px(2.))
             .child(self.stripe_zone(top, top_anchor, true, cx))
             .children(bottom.map(|(stripes, anchor)| self.stripe_zone(stripes, anchor, false, cx)))
     }
@@ -528,12 +538,17 @@ impl Render for Workbench {
         // the right stripe is always there, to drop buttons on.
         let left_stripe = self.stripe((&left, Anchor::Left), Some((&bottom, Anchor::Bottom)), cx);
         let right_stripe = self.stripe((&right, Anchor::Right), None, cx);
+        // gpui-component keeps a closed bottom dock as a strip with its tab bar; React's is gone.
+        let area = self.dock.read(cx);
+        let bottom_closed = area.layout(DockPlacement::Bottom).is_some() && !area.is_dock_open(DockPlacement::Bottom);
+        // React's status bar: 34px, padding 0 10px 0 12px, 13px text.
         let status = h_flex()
-            .h(px(30.))
+            .h(px(34.))
             .flex_none()
-            .px(px(12.))
-            .gap(px(16.))
-            .text_size(px(12.))
+            .pl(px(12.))
+            .pr(px(10.))
+            .gap(px(8.))
+            .text_size(px(13.))
             .text_color(theme::token(cx, "fg-secondary"))
             .children(self.status_left.iter().cloned())
             .child(div().flex_1())
@@ -555,8 +570,20 @@ impl Render for Workbench {
                 h_flex()
                     .flex_1()
                     .min_h_0()
+                    .overflow_hidden()
                     .child(left_stripe)
-                    .child(div().flex_1().min_w_0().h_full().child(self.dock.clone()))
+                    // Islands keep half the gap around them; the outer half is not React's.
+                    .child(
+                        div().relative().flex_1().min_w_0().h_full().child(
+                            div()
+                                .absolute()
+                                .top(px(-3.))
+                                .left(px(-3.))
+                                .right(px(-3.))
+                                .bottom(px(if bottom_closed { -3. - CLOSED_BOTTOM_STRIP } else { -3. }))
+                                .child(self.dock.clone()),
+                        ),
+                    )
                     .child(right_stripe),
             )
             .child(status)

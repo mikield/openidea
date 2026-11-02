@@ -37,6 +37,13 @@ Started in cloud session `session_0119LHos6FRaLnRfpPRXyff5` (Nov 1–2, 2026), b
   `src/features/<feature>` from that revision and port the delta.
 - **Every feature is a plugin** from its first commit: a UI crate, plus a backend part only
   when it needs server commands. Types crossing the boundary are serde.
+- **Parity first (decided 2026-11-02).** The client must look and behave 1:1 like React. No new
+  feature starts while an already ported screen differs from React. For every screen:
+  1. run React in plain-browser mode (`corepack pnpm install`, then `corepack pnpm exec vite --port 1450`;
+     the sample project `acme-api`) at the GPUI window's size and theme;
+  2. read sizes, paddings, fonts, colours and radii from the DOM (computed styles), not by eye;
+  3. port those numbers, then compare screenshots side by side until no difference remains;
+  4. record the screen in the parity table below (`## Parity`).
 
 ## Waves and gates
 
@@ -217,6 +224,9 @@ is GPL: never copy from it.
 
 ## Gotchas found in the spike
 
+- **A closed bottom dock keeps a 29px strip** (gpui-component's `CLOSED_BOTTOM_STRIP`, its tab bar).
+  React's disappears, so the workbench positions the dock area to push the strip out of view.
+
 - **Coordinates:** the protocol counts UTF-16 units; the gpui-component editor's `Position`
   counts chars; ropes use UTF-8 bytes. Convert at every boundary (`client_rpc::text`).
 - **Edits:** the editor emits `InputEvent::Change` without a delta; the spike diffs the buffer
@@ -275,6 +285,23 @@ Platform dependencies:
   full Xcode for Metal shaders; Windows needs the MSVC toolchain. `client.yml` CI is the check.
 
 Headless check (Linux, agents and CI): `client/scripts/headless-shot.sh PROJECT [FILE] [OUT.png]`.
+
+## Parity
+
+Screens compared with React by computed styles and side-by-side screenshots (light theme, 1280×770).
+"Not ported" lists React parts that come with features not ported yet, not differences.
+
+| Screen | React source | State | Not ported |
+| --- | --- | --- | --- |
+| Shell: title bar, stripes, islands, status bar | `src/workbench` (`Workbench`, `ToolWindows.module.css`) | matches: 40px title bar, 44px stripes (32px buttons, 18px icons), islands 240 / gap 6 / radius 10, 34px status bar, Inter 13px; only Project open at first | Run widget, right-stripe tools, Vim widget |
+| Tool window header | `ToolWindows.module.css` (`.header`, `.titleButton`) | matches: title + chevron, actions on hover | the title's view menu |
+| Project tree rows | `src/ui/Tree`, `src/features/project` | matches: 24px rows, 20px indent, icon + label 5px apart | excluded-folder tint |
+| Editor empty state | `src/workbench/EditorArea` | matches | drop target |
+| Editor, tabs, Find Usages, Rename prompt, Search Everywhere, Settings, Terminal | — | not compared yet | — |
+
+Fonts: `client-core/fonts` bundles Inter 4.1 (Regular, Medium, SemiBold, Bold) and JetBrains Mono
+2.304 (Regular, Italic, Bold, BoldItalic), OFL, registered at start (`register_fonts`); GPUI
+cannot load the woff2 files React uses.
 
 ## Port ledger
 
