@@ -17,6 +17,7 @@ use gpui::{
     MouseButton, ParentElement, Render, SharedString, StatefulInteractiveElement, Styled, Subscription, Window, div,
     px, relative,
 };
+use gpui_base::input::GutterLayout;
 use gpui_component::highlighter::{Diagnostic as EditorDiagnostic, DiagnosticSeverity};
 use gpui_component::input::{Editor, EditorState, GoToDefinition, Input, InputEvent, InputState, Position};
 use gpui_component::{h_flex, v_flex};
@@ -154,8 +155,6 @@ impl EditorArea {
         let read_only = info.read_only;
         let editor = cx.new(|cx| {
             let mut state = EditorState::new(window, cx).language(language);
-            // React's first line sits 4px below the tab strip.
-            state.set_editor_paddings(gpui::Edges { top: px(4.), ..Default::default() });
             state.set_value(info.text.clone(), window, cx);
             state.set_readonly(read_only, cx);
             let lsp = state.lsp_mut();
@@ -517,6 +516,24 @@ impl EditorArea {
     }
 }
 
+/// React's CodeMirror gutter: line numbers (10px before — gpui-component's `Input` already pads a
+/// code editor 6px on the left, so 4 here — and 8px after), the bookmark, run, Spring and
+/// change lanes (15 + 14 + 14 + 4px, empty until those features come), folding (16px), a 1px
+/// border, then the line's 6px padding.
+fn gutter_layout(cx: &App) -> GutterLayout {
+    GutterLayout {
+        number_left: px(4.),
+        number_right: px(8.),
+        min_digits: 2,
+        lanes: px(47.),
+        fold_width: px(16.),
+        border: Some(token(cx, "border-gutter")),
+        text_gap: px(6.),
+        number_color: Some(token(cx, "fg-line-number")),
+        active_number_color: Some(token(cx, "fg-line-number-current")),
+    }
+}
+
 /// Protocol positions count UTF-16 units; the editor's `Position` counts chars.
 fn editor_pos(text: &str, pos: Pos) -> Position {
     let byte = text::pos_to_byte(text, pos);
@@ -575,6 +592,9 @@ impl Render for EditorArea {
             return v_flex().size_full().child(empty_hints(cx));
         };
         let editor = open.editor.clone();
+        // From the current theme: a theme switch recolours the gutter too.
+        let gutter = gutter_layout(cx);
+        editor.update(cx, |state, _| state.set_gutter_layout(Some(gutter)));
         let tabs: Vec<_> = (0..self.docs.len()).map(|ix| self.tab(ix, cx)).collect();
         v_flex()
             .size_full()
@@ -600,8 +620,18 @@ impl Render for EditorArea {
                     .relative()
                     .flex_1()
                     .min_h_0()
-                    // React's `.cm-scroller`: 22px lines.
-                    .child(Editor::new(&editor).bordered(false).h(relative(1.)).line_height(px(22.)))
+                    .overflow_hidden()
+                    // React's `.cm-scroller`: 22px lines, the first 4px below the tabs. `Input` pads a
+                    // code editor 8px on top on every render: the editor starts 4px higher, clipped.
+                    .child(
+                        div()
+                            .absolute()
+                            .top(px(-4.))
+                            .bottom_0()
+                            .left_0()
+                            .right_0()
+                            .child(Editor::new(&editor).bordered(false).h(relative(1.)).line_height(px(22.))),
+                    )
                     .children(self.rename_prompt(cx)),
             )
     }

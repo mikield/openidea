@@ -57,6 +57,11 @@ Started in cloud session `session_0119LHos6FRaLnRfpPRXyff5` (Nov 1–2, 2026), b
 | 5 | Debugger + agents (14k): DAP UI, coverage, profiler | breakpoint → step → variables on Rust and PHP; an agent task in a worktree |
 | 6 | Tail + parity (2k): notebook, perf, remaining e2e, packaging | `perf/budgets.json` met; Tauri build switched off |
 
+**Editor gate decision (2026-11-02): option B taken.** `client/vendor/gpui-base` is gpui-base 0.8.1,
+patched in with `[patch.crates-io]` (gpui-component uses it too); our changes are marked
+`// openidea:` and listed in `vendor/gpui-base/VENDOR.md`. First change: `GutterLayout` (React's gutter).
+Test the vendored crate on its own: `cd vendor/gpui-base && cargo test --features test-support --lib input::`.
+
 **Editor gate** (start of wave 2): start with the gpui-component editor (A); if it fails two or
 more items, fork the `input` module of `gpui-base` (Apache-2.0) into our crate (B). Zed's editor
 is GPL: never copy from it.
@@ -298,7 +303,7 @@ Screens compared with React by computed styles and side-by-side screenshots (lig
 | Project tree rows | `src/ui/Tree`, `src/features/project` | matches: 24px rows, 20px indent, icon + label 5px apart | excluded-folder tint |
 | Editor empty state | `src/workbench/EditorArea` | matches | drop target |
 | Editor tabs | `src/workbench/editor` (`.strip`, `.tab`) | matches: 40px strip with a 1px line, 28px tabs, 14px icon, 20px close slot, no border | Split Right, Tab Actions buttons |
-| Editor text | `src/editor/core` (CodeMirror theme) | matches: JetBrains Mono 13 / 22px lines, 4px top padding, Islands syntax colours, grey inactive tree selection | **gutter**: React's is 98px (line numbers 34, bookmarks, run and Spring lanes, change lane, folding, a 1px border, text 6px after it); gpui-component's width is fixed (digits + fold icon) with no API for lanes — needs the `input` fork (editor gate option B) |
+| Editor text | `src/editor/core` (CodeMirror theme) | matches: JetBrains Mono 13 / 22px lines, first line 4px below the tabs, Islands syntax colours, grey inactive tree selection; gutter 98px (numbers 10 + digits + 8, 47px of lanes, 16px folding, 1px border at 97px, text at 104px), line-number colours | the lanes' markers (bookmarks, run, Spring, changes) |
 | Status bar in an editor | `src/workbench/statusbar` | position only | breadcrumbs, LF, UTF-8, indent, Vim widgets |
 | Find Usages, Rename prompt, Search Everywhere, Settings, Terminal | — | not compared yet | — |
 
