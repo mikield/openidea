@@ -1,9 +1,11 @@
 //! The editor's backend contract against a real `oi-server` (skipped when it is not built):
 //! a `DocPatched` merged with `text::apply` gives the server's text, and go to / hover
-//! answer in the shapes `navigation.rs` reads (with `rust-analyzer` on `PATH`).
+//! answer in the shapes `navigation.rs` reads, and Find Usages, Rename and Reformat Code
+//! work end to end (with `rust-analyzer` on `PATH`).
 
 use client_rpc::{Connection, Stdio, text};
 use ide_core::{FileEdit, IdeEvent, Pos, Range, TextEdit, WorkspaceEdit};
+use plugin_editor::code_insight;
 use serde_json::{Value, json};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -104,4 +106,49 @@ async fn patches_merge_and_navigation_answers() {
         tokio::time::sleep(Duration::from_millis(500)).await;
     }
     assert!(hover["contents"]["value"].as_str().unwrap_or_default().contains("greet"), "{hover}");
+
+    // Find Usages from the declaration: the call in `main`, with its line.
+    let mut found = Default::default();
+    for _ in 0..40 {
+        if let Ok(r) = code_insight::find_usages(conn.clone(), doc.id, Pos::new(0, 4)).await
+            && r.count() > 0
+        {
+            found = r;
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(500)).await;
+    }
+    let code_insight::UsageResults { files, .. } = found;
+    let (path, usages) = files.first().expect("no usages in time");
+    assert!(path.ends_with("main.rs"), "{}", path.display());
+    assert_eq!(usages.len(), 1, "{usages:?}");
+    assert_eq!(usages[0].range.start, Pos::new(5, 13));
+    assert!(usages[0].line.contains("greet();"), "{:?}", usages[0].line);
+
+    // Rename: the server's range is the name; the edit lands in the document.
+    let range = code_insight::prepare_rename(conn.clone(), doc.id, merged.clone(), Pos::new(0, 4)).await.unwrap();
+    assert_eq!(range.map(|r| &merged[r]), Some("greet"));
+    let (occurrences, files) =
+        code_insight::rename(conn.clone(), doc.id, Pos::new(0, 4), "hello".into()).await.unwrap();
+    assert_eq!((occurrences, files), (2, 1));
+    conn.doc_save(doc.id).await.unwrap();
+    let saved = std::fs::read_to_string(&main).unwrap();
+    assert!(saved.contains("fn hello()") && saved.contains("= hello();"), "{saved}");
+
+    // Reformat: an over-indented body comes back with four spaces.
+    let indent = WorkspaceEdit {
+        files: vec![FileEdit::Edit {
+            path: main.clone().into(),
+            edits: vec![TextEdit {
+                range: Range { start: Pos::new(1, 0), end: Pos::new(1, 0) },
+                new_text: "      ".into(),
+            }],
+        }],
+    };
+    conn.invoke::<Value>("apply_workspace_edit", json!({ "edit": indent })).await.unwrap();
+    let changed = code_insight::reformat(conn.clone(), doc.id, main.clone(), String::new()).await.unwrap();
+    assert!(changed > 0);
+    conn.doc_save(doc.id).await.unwrap();
+    let saved = std::fs::read_to_string(&main).unwrap();
+    assert!(saved.contains("{\n    1\n}"), "{saved}");
 }

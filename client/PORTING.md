@@ -195,10 +195,25 @@ is GPL: never copy from it.
    - Caret `line:column` in the status bar (`caret` status item).
    - A backend test (real `oi-server` + rust-analyzer) checks the merge against the server's
      saved text and the shapes of `lsp_goto` / `lsp_hover`.
-2. Next: Find Usages (`lsp_references`), rename (`lsp_prepare_rename` / `lsp_rename` +
-   `apply_workspace_edit`), Reformat (`lsp_format` → edits), Find in Files (Search
-   Everywhere's Text tab, `search_start`), Structure, inlay hints, the editor gate
-   measurements (typing latency, 100k lines, IME).
+2. Done — Find Usages, Rename, Reformat Code (`plugin-editor/src/code_insight.rs`, React
+   `src/editor/lsp/{format,rename}.ts`, `src/features/code-insight/usages.ts`):
+   - The server computes and applies every edit: `lsp_format` / `lsp_rename` → `apply_workspace_edit`;
+     open editors take the result as `DocPatched` (step 1), files that are not open change on disk.
+   - Reformat Code (Ctrl+Alt+L, `code.reformat`): the whole document; tabs when the text is
+     tab-indented, else 4 spaces (React reads the editor's indent unit).
+   - Rename (Shift+F6, `refactor.rename`): `lsp_prepare_rename` (falls back to the word at the
+     caret), then a "Rename to" prompt over the editor; Enter renames, Escape cancels. Not yet:
+     React's in-place rename with linked occurrences, the preview of multi-file edits, the
+     syntax-tree fallback for local variables without a server.
+   - Find Usages (Alt+F7, `find.usages`): `lsp_references` project-wide, without the declaration;
+     the `usages` tool window (bottom) lists them by file with the line and the usage marked
+     (`bg-search-match`), lines read with `fs_read_text`. Not yet: one tab per search, access
+     filters, the Show Usages popup, `usages.rerun`.
+   - Dev flags: `--open FILE:LINE:COL` and `--wait MS` before `--run-action` (screenshots of
+     actions that need an analysed document).
+   - The backend test now also runs Find Usages, Rename and Reformat end to end.
+3. Next: Find in Files (Search Everywhere's Text tab, `search_start`), Structure, inlay hints,
+   the editor gate measurements (typing latency, 100k lines, IME).
 
 ## Gotchas found in the spike
 
@@ -268,6 +283,8 @@ Headless check (Linux, agents and CI): `client/scripts/headless-shot.sh PROJECT 
 | project-tree | plugin-project-tree | 4015a5b (spike behaviour, not yet `src/features/project`) | basic |
 | problems | plugin-problems | 4015a5b (spike behaviour) | basic |
 | editor | plugin-editor | 4015a5b (spike; go to / hover from `src/editor/lsp`) | tabs, go to, hover, DocPatched |
+| reformat, rename | plugin-editor | b5dbd3c (`src/editor/lsp/format.ts`, `rename.ts`) | basic: whole file; name prompt, no preview |
+| find usages | plugin-editor | b5dbd3c (`src/features/code-insight/usages.ts`, `UsagesView.tsx`) | basic: one search, no filters |
 | terminal | plugin-terminal | 4015a5b (`src/features/terminal`, behaviour) | basic: no selection, no settings |
 | keymaps (6 presets) | plugin-presets | 87bf89d (`src/platform/keymaps`) | data, re-export with the script |
 | themes (7 built-in) | plugin-presets | 2c9a647 (`tokens.css`, `themes.ts`) | data, re-export with the script |

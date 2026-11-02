@@ -1,6 +1,7 @@
 //! The editor area: open documents as tabs, each synced with the backend, with
 //! completion and the problems the backend reports for it.
 
+use crate::code_insight::{self, UsageResults};
 use crate::completion::ServerCompletions;
 use crate::doc_sync::DocSync;
 use crate::navigation::{ServerNavigation, uri_to_path};
@@ -12,13 +13,14 @@ use client_rpc::proto::DocumentInfo;
 use client_rpc::{Connection, text};
 use gpui::prelude::FluentBuilder as _;
 use gpui::{
-    App, AppContext, ClickEvent, Context, Entity, EntityInputHandler, InteractiveElement, IntoElement, MouseButton,
-    ParentElement, Render, SharedString, StatefulInteractiveElement, Styled, Subscription, Window, div, px, relative,
+    App, AppContext, ClickEvent, Context, Entity, EntityInputHandler, InteractiveElement, IntoElement, KeyDownEvent,
+    MouseButton, ParentElement, Render, SharedString, StatefulInteractiveElement, Styled, Subscription, Window, div,
+    px, relative,
 };
 use gpui_component::highlighter::{Diagnostic as EditorDiagnostic, DiagnosticSeverity};
-use gpui_component::input::{Editor, EditorState, GoToDefinition, InputEvent, Position};
+use gpui_component::input::{Editor, EditorState, GoToDefinition, Input, InputEvent, InputState, Position};
 use gpui_component::{h_flex, v_flex};
-use ide_core::{DocId, IdeEvent, Pos, Severity, TextChange};
+use ide_core::{DocId, IdeEvent, IdeResult, Pos, Severity, TextChange};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::Arc;
@@ -36,6 +38,15 @@ pub struct EditorArea {
     _subscriptions: Vec<Subscription>,
     /// Where the caret is, for the status bar (`line:column`, 1-based); `None` without a document.
     on_caret: CaretSink,
+    /// The new-name prompt of a Rename in progress.
+    rename: Option<RenamePrompt>,
+}
+
+struct RenamePrompt {
+    doc: DocId,
+    pos: Pos,
+    input: Entity<InputState>,
+    _enter: Subscription,
 }
 
 /// Receives the caret position whenever it may have changed.
@@ -103,6 +114,7 @@ impl EditorArea {
             note: SharedString::default(),
             _subscriptions: subscriptions,
             on_caret,
+            rename: None,
         }
     }
 
@@ -214,6 +226,145 @@ impl EditorArea {
         let Some(open) = self.docs.get(self.active) else { return };
         open.editor.update(cx, |state, cx| state.focus(window, cx));
         window.dispatch_action(Box::new(GoToDefinition), cx);
+    }
+
+    /// The active document's text and caret (a byte offset), once the backend has that text.
+    fn at_caret(&self, cx: &App) -> Option<(DocId, PathBuf, String, impl Future<Output = IdeResult<Pos>> + 'static)> {
+        let open = self.docs.get(self.active)?;
+        let state = open.editor.read(cx);
+        let text = state.value().to_string();
+        let pos = open.sync.position(text.clone(), state.cursor());
+        Some((open.sync.doc, open.path.clone(), text, pos))
+    }
+
+    /// Runs `task` and shows its outcome (or failure) beside the tabs.
+    fn report(&mut self, task: impl Future<Output = IdeResult<String>> + 'static, cx: &mut Context<Self>) {
+        cx.spawn(async move |this, cx| {
+            let note = task.await.unwrap_or_else(|e| e.message);
+            let _ = this.update(cx, |area, cx| area.set_note(note, cx));
+        })
+        .detach();
+    }
+
+    fn set_note(&mut self, note: impl Into<SharedString>, cx: &mut Context<Self>) {
+        self.note = note.into();
+        cx.notify();
+    }
+
+    /// `code.reformat`: the whole document, by its language server.
+    pub fn reformat(&mut self, cx: &mut Context<Self>) {
+        if self.docs.get(self.active).is_none_or(|o| o.read_only) {
+            return;
+        }
+        let Some((doc, path, text, synced)) = self.at_caret(cx) else { return };
+        let conn = self.conn.clone();
+        self.report(
+            async move {
+                synced.await?;
+                Ok(match code_insight::reformat(conn, doc, path, text).await? {
+                    0 => "Already formatted".into(),
+                    n => format!("Reformatted: {n} change(s)"),
+                })
+            },
+            cx,
+        );
+    }
+
+    /// `refactor.rename`: asks for the new name of the symbol at the caret.
+    pub fn start_rename(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.docs.get(self.active).is_none_or(|o| o.read_only) {
+            return;
+        }
+        let Some((doc, _, text, pos)) = self.at_caret(cx) else { return };
+        let conn = self.conn.clone();
+        cx.spawn_in(window, async move |this, cx| {
+            let found = async {
+                let pos = pos.await?;
+                let range = code_insight::prepare_rename(conn, doc, text.clone(), pos).await?;
+                IdeResult::Ok(range.map(|r| (pos, r)))
+            }
+            .await;
+            let _ = this.update_in(cx, |area, window, cx| match found {
+                Ok(Some((pos, range))) => area.show_rename(doc, pos, text[range].to_string(), window, cx),
+                Ok(None) => area.set_note("Cannot rename this element", cx),
+                Err(e) => area.set_note(e.message, cx),
+            });
+        })
+        .detach();
+    }
+
+    fn show_rename(&mut self, doc: DocId, pos: Pos, name: String, window: &mut Window, cx: &mut Context<Self>) {
+        let input = cx.new(|cx| {
+            let mut state = InputState::new(window, cx);
+            state.set_value(name, window, cx);
+            state.select_all(window, cx);
+            state
+        });
+        let enter = cx.subscribe_in(&input, window, |area, input, event: &InputEvent, window, cx| {
+            if let InputEvent::PressEnter { .. } = event {
+                let name = input.read(cx).value().trim().to_string();
+                area.finish_rename(Some(name), window, cx);
+            }
+        });
+        input.update(cx, |state, cx| state.focus(window, cx));
+        self.rename = Some(RenamePrompt { doc, pos, input, _enter: enter });
+        cx.notify();
+    }
+
+    /// Ends the prompt; renames to `name` unless cancelled (`None`) or left empty.
+    fn finish_rename(&mut self, name: Option<String>, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(prompt) = self.rename.take() else { return };
+        if let Some(open) = self.docs.get(self.active) {
+            open.editor.update(cx, |state, cx| state.focus(window, cx));
+        }
+        cx.notify();
+        let Some(name) = name.filter(|n| !n.is_empty()) else { return };
+        let conn = self.conn.clone();
+        self.report(
+            async move {
+                Ok(match code_insight::rename(conn, prompt.doc, prompt.pos, name.clone()).await? {
+                    (0, _) => "Nothing to rename".into(),
+                    (n, 1) => format!("Renamed to '{name}': {n} occurrence(s)"),
+                    (n, files) => format!("Renamed to '{name}': {n} occurrence(s) in {files} files"),
+                })
+            },
+            cx,
+        );
+    }
+
+    /// `find.usages`: the symbol at the caret (its word, for the title) and its usages.
+    pub fn find_usages(
+        &self,
+        cx: &App,
+    ) -> Option<(SharedString, impl Future<Output = IdeResult<UsageResults>> + 'static)> {
+        let (doc, _, text, pos) = self.at_caret(cx)?;
+        let offset = self.docs[self.active].editor.read(cx).cursor();
+        let symbol = text[code_insight::word_at(&text, offset)].to_string();
+        let conn = self.conn.clone();
+        Some((symbol.into(), async move { code_insight::find_usages(conn, doc, pos.await?).await }))
+    }
+
+    fn rename_prompt(&self, cx: &mut Context<Self>) -> Option<gpui::Div> {
+        let prompt = self.rename.as_ref()?;
+        let row = h_flex()
+            .w(px(360.))
+            .p(px(8.))
+            .gap(px(8.))
+            .rounded(px(8.))
+            .border_1()
+            .border_color(token(cx, "border-popup"))
+            .bg(token(cx, "bg-popup"))
+            .shadow_lg()
+            .text_size(px(13.))
+            .child(div().text_color(token(cx, "fg-secondary")).child("Rename to"))
+            .child(div().flex_1().child(Input::new(&prompt.input)))
+            .on_key_down(cx.listener(|area, event: &KeyDownEvent, window, cx| {
+                if event.keystroke.key == "escape" {
+                    cx.stop_propagation();
+                    area.finish_rename(None, window, cx);
+                }
+            }));
+        Some(div().absolute().top(px(8.)).left_0().right_0().flex().justify_center().child(row))
     }
 
     /// The backend changed document `doc` (formatting, a refactoring): the sync adopts the
@@ -430,7 +581,14 @@ impl Render for EditorArea {
                         div().pl(px(8.)).text_size(px(12.)).text_color(token(cx, "fg-subtle")).child(self.note.clone()),
                     ),
             )
-            .child(div().flex_1().min_h_0().child(Editor::new(&editor).bordered(false).h(relative(1.))))
+            .child(
+                div()
+                    .relative()
+                    .flex_1()
+                    .min_h_0()
+                    .child(Editor::new(&editor).bordered(false).h(relative(1.)))
+                    .children(self.rename_prompt(cx)),
+            )
     }
 }
 

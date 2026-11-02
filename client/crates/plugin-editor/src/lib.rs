@@ -2,23 +2,28 @@
 //! `file.save` action, on `client-core` extension points only. Files open
 //! when any plugin asks [`client_core::Editors`]; problems come from
 //! [`client_core::DiagnosticsStore`]. Go to declaration (Ctrl+B, Ctrl+click) and hover
-//! come from the language servers; the caret position shows in the status bar.
+//! come from the language servers; the caret position shows in the status bar. Reformat Code,
+//! Rename and Find Usages (with its `usages` tool window) are computed and applied by the server.
 
+pub mod code_insight;
 mod completion;
 mod doc_sync;
 mod editor_area;
 mod navigation;
+mod usages;
 
-use client_core::{ActionDef, Extensions, Plugin, StatusAlign, StatusItem};
+use client_core::{ActionDef, Anchor, Extensions, Plugin, StatusAlign, StatusItem, ToolWindow};
 use editor_area::{CaretSink, EditorArea};
 use gpui::{App, AppContext, Context, IntoElement, ParentElement, Render, WeakEntity, Window, div};
 use std::cell::RefCell;
 use std::rc::Rc;
+use usages::UsagesView;
 
 #[derive(Default)]
 pub struct EditorPlugin {
     current: Rc<RefCell<Option<WeakEntity<EditorArea>>>>,
     caret: Rc<RefCell<Option<WeakEntity<CaretLabel>>>>,
+    usages: Rc<RefCell<Option<WeakEntity<UsagesView>>>>,
 }
 
 /// The status bar's `line:column` (IDEA's position widget); empty without a document.
@@ -84,6 +89,55 @@ impl Plugin for EditorPlugin {
                 }
             })
             .category("Navigate"),
+        );
+
+        let usages = self.usages.clone();
+        ext.add_tool_window(ToolWindow {
+            id: "usages",
+            title: "Find Usages".into(),
+            icon: "toolwindow-usages".into(),
+            anchor: Anchor::Bottom,
+            order: 35,
+            own_header: false,
+            build: Rc::new(move |services, _, cx| {
+                let view = cx.new(|cx| UsagesView::new(services, cx));
+                *usages.borrow_mut() = Some(view.downgrade());
+                view.into()
+            }),
+        });
+
+        let (current, usages) = (self.current.clone(), self.usages.clone());
+        ext.add_action(
+            ActionDef::new("find.usages", "Find Usages", move |workbench, window, cx| {
+                let Some(area) = current.borrow().as_ref().and_then(WeakEntity::upgrade) else { return };
+                let Some(view) = usages.borrow().as_ref().and_then(WeakEntity::upgrade) else { return };
+                let Some((symbol, search)) = area.read(cx).find_usages(cx) else { return };
+                view.update(cx, |view, cx| view.search(symbol, search, cx));
+                if !workbench.is_tool_window_visible("usages", cx) {
+                    workbench.toggle_tool_window("usages", window, cx);
+                }
+            })
+            .category("Find"),
+        );
+
+        let current = self.current.clone();
+        ext.add_action(
+            ActionDef::new("code.reformat", "Reformat Code", move |_, _, cx| {
+                if let Some(area) = current.borrow().as_ref().and_then(WeakEntity::upgrade) {
+                    area.update(cx, |area, cx| area.reformat(cx));
+                }
+            })
+            .category("Code"),
+        );
+
+        let current = self.current.clone();
+        ext.add_action(
+            ActionDef::new("refactor.rename", "Rename…", move |_, window, cx| {
+                if let Some(area) = current.borrow().as_ref().and_then(WeakEntity::upgrade) {
+                    area.update(cx, |area, cx| area.start_rename(window, cx));
+                }
+            })
+            .category("Refactor"),
         );
 
         for (id, title, step) in [

@@ -45,6 +45,10 @@ backend's config and caches. Plan, decisions and next steps: [`PORTING.md`](PORT
 - completion through `lsp_completion`, filtered and ranked client-side
 - one ordered queue per document: completion never runs against text the
   server has not seen, save never overtakes an edit
+- editor tabs; go to declaration (Ctrl+B, Ctrl+click), hover docs; backend edits
+  (`DocPatched`) merged into open editors
+- Find Usages (Alt+F7, its own tool window), Rename (Shift+F6, a name prompt) and
+  Reformat Code (Ctrl+Alt+L), computed and applied by the server
 
 `cargo test --workspace` runs `oi-server`'s own end-to-end test, and the client's
 end-to-end tests against the real server once `oi-server` is built (as above); the
@@ -52,9 +56,9 @@ rust-analyzer test needs `rust-analyzer` on `PATH`.
 
 ## Known gaps (spike)
 
-- one editor, no tabs; no go-to-definition, hover docs, formatting
-- backend-initiated document changes (`DocPatched`) are not merged yet
-- themes and keymaps follow the settings, but there is no Settings UI to switch them yet
+- Rename asks for the name in a prompt; React renames in place with linked occurrences
+  and previews multi-file edits
+- an edit that crosses a `DocPatched` is reported, not rebased
 - duplicate completion items are not merged
 - error squiggles are not visible under Mesa llvmpipe (hover shows the diagnostic);
   unverified on real GPUs
