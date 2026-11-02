@@ -9,7 +9,7 @@ use crate::Backend;
 use gpui::{Context, Entity, EventEmitter, Subscription, Task};
 use ide_core::settings::Settings;
 use ide_core::{IdeError, IdeEvent, IdeResult};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use serde_json::{Value, json};
 
 /// Which layer a write goes to; a project value overrides the global one.
@@ -30,11 +30,6 @@ pub struct SettingsStore {
 }
 
 impl EventEmitter<SettingsChanged> for SettingsStore {}
-
-#[derive(Deserialize)]
-struct Applied {
-    settings: Settings,
-}
 
 impl SettingsStore {
     /// Starts from `initial` (the defaults until the first read) and reads the server's value.
@@ -74,11 +69,11 @@ impl SettingsStore {
         value: Value,
         cx: &mut Context<Self>,
     ) -> Task<IdeResult<()>> {
-        let write = self.backend.read(cx).connection().invoke::<Applied>("settings_set", set_args(scope, key, &value));
+        // `settings_set` answers with the effective settings after the write.
+        let write = self.backend.read(cx).connection().invoke::<Settings>("settings_set", set_args(scope, key, &value));
         cx.spawn(async move |this, cx| {
-            let applied = write.await?;
-            this.update(cx, |this, cx| this.replace(applied.settings, cx))
-                .map_err(|e| IdeError::internal(e.to_string()))
+            let settings = write.await?;
+            this.update(cx, |this, cx| this.replace(settings, cx)).map_err(|e| IdeError::internal(e.to_string()))
         })
     }
 
@@ -100,18 +95,34 @@ fn set_args(scope: SettingsScope, key: &str, value: &Value) -> Value {
 mod tests {
     use super::*;
 
+    /// A write through `settings_set` comes back from `settings_get` (a real `oi-server`; skipped unbuilt).
+    #[tokio::test(flavor = "multi_thread")]
+    async fn settings_round_trip_through_the_backend() {
+        let server = client_rpc::Stdio::locate();
+        if !server.program.exists() {
+            eprintln!("skipped: {} not built", server.program.display());
+            return;
+        }
+        let home = tempfile::tempdir().unwrap();
+        let transport = client_rpc::Stdio { program: server.program, home: Some(home.path().into()) };
+        let (conn, _, _events) = client_rpc::Connection::connect(&transport, "main").await.unwrap();
+        let applied: Settings = conn
+            .invoke("settings_set", set_args(SettingsScope::Global, "appearance.theme", &json!("one-dark")))
+            .await
+            .unwrap();
+        assert_eq!(applied.appearance.theme, "one-dark");
+        conn.invoke::<Settings>("settings_set", set_args(SettingsScope::Global, "keymap", &json!("vscode-windows")))
+            .await
+            .unwrap();
+        let settings: Settings = conn.invoke("settings_get", json!({})).await.unwrap();
+        assert_eq!((settings.appearance.theme.as_str(), settings.keymap.as_str()), ("one-dark", "vscode-windows"));
+    }
+
     #[test]
     fn set_sends_the_value_as_json_text() {
         let args = set_args(SettingsScope::Project, "editor.fontSize", &json!(14));
         assert_eq!(args, json!({ "scope": "project", "key": "editor.fontSize", "value": "14" }));
         let args = set_args(SettingsScope::Global, "keymap", &json!("vscode"));
         assert_eq!(args["value"], "\"vscode\"");
-    }
-
-    #[test]
-    fn applied_reply_reads_the_settings() {
-        let reply = json!({ "settings": { "keymap": "eclipse" }, "projectScope": false, "rootsChanged": null });
-        let applied: Applied = serde_json::from_value(reply).unwrap();
-        assert_eq!(applied.settings.keymap, "eclipse");
     }
 }

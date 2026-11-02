@@ -528,7 +528,6 @@ impl Render for Workbench {
         // the right stripe is always there, to drop buttons on.
         let left_stripe = self.stripe((&left, Anchor::Left), Some((&bottom, Anchor::Bottom)), cx);
         let right_stripe = self.stripe((&right, Anchor::Right), None, cx);
-        let project = self.services.backend.read(cx).project().name.clone();
         let status = h_flex()
             .h(px(30.))
             .flex_none()
@@ -551,11 +550,7 @@ impl Render for Workbench {
             .on_action(cx.listener(|wb, a: &HideToolWindow, window, cx| wb.hide_tool_window(&a.id, window, cx)))
             .on_modifiers_changed(cx.listener(Self::on_modifiers_changed))
             .capture_key_down(cx.listener(|wb, _: &KeyDownEvent, _, _| wb.taps.key_pressed()))
-            .child(WorkbenchTitleBar {
-                project: project.into(),
-                left: self.title_left.clone(),
-                right: self.title_right.clone(),
-            })
+            .child(WorkbenchTitleBar { left: self.title_left.clone(), right: self.title_right.clone() })
             .child(
                 h_flex()
                     .flex_1()

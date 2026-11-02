@@ -161,9 +161,20 @@ is GPL: never copy from it.
      the system UI font; the fonts React ships come from npm and are not in the repository),
      the editor font from settings else JetBrains Mono, 40 px title bar, an empty status bar
      when idle.
-   - Still missing against React: main menu, run configuration and search / settings buttons in
-     the title bar, right status items (Vim, interpreter, memory), editor tab overflow / pinning /
-     splits, terminal selection.
+   - Main menu (`plugin-menu`): the hamburger in the title bar opens upstream's own menu spec —
+     `build.rs` cuts `Os` / `Native` / `Entry` / `spec()` out of `src-tauri/src/menu.rs` (no Tauri
+     code) and `include!`s it, so the menu follows upstream. Items run their action id; items no
+     plugin registered yet are disabled; GPUI shows the keymap's keys.
+   - Title bar items are contributions now: the project widget (core), the menu (plugin), search
+     and settings buttons (core, `navigate.searchEverywhere` / `file.settings`).
+   - Settings dialog (`file.settings`, Ctrl+Alt+S): contributed `SettingsPage`s grouped as in
+     IDEA (groups by their lowest order); pages write at once (React stages until OK / Apply: not
+     yet). `plugin-presets` adds Appearance (theme, Sync with OS) and Keymap.
+   - Gotcha: `settings_set` answers with the effective `Settings`, not `SettingsApplied`
+     (`rpc.rs` unwraps it); a backend round-trip test pins it.
+   - Still missing against React: run configuration in the title bar, right status items (Vim,
+     interpreter, memory), editor tab overflow / pinning / splits, terminal selection, the
+     Settings pages beyond Appearance and Keymap.
    - Reference for IDEA behaviour where the React port is silent: OpenIDE
      (gitflic.ru/project/openide/openide, an IntelliJ Community fork, Apache-2.0); the React
      code stays the spec.

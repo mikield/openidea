@@ -1,9 +1,16 @@
 //! The frameless title bar (React: `TitleBar.tsx`): the project widget, the
 //! plugins' title items (VCS branch, run configuration…), the window controls.
 
+use crate::plugin::{Extensions, StatusAlign, TitleItem};
 use crate::theme::token;
-use gpui::{AnyView, App, Hsla, IntoElement, ParentElement, RenderOnce, SharedString, Styled, Window, div, px};
-use gpui_component::{TitleBar, h_flex};
+use crate::{Icon, RunAction};
+use gpui::{
+    AnyView, App, AppContext, Context, IntoElement, ParentElement, Render, RenderOnce, SharedString, Styled, Window,
+    div, px,
+};
+use gpui_component::button::{Button, ButtonVariants as _};
+use gpui_component::{Sizable as _, TitleBar, h_flex};
+use std::rc::Rc;
 
 /// `--project-color-N` slots, as React's `projectColor.ts` counts them.
 const PROJECT_COLOR_COUNT: i64 = 9;
@@ -42,45 +49,94 @@ fn camel_initials(text: &str) -> String {
 
 #[derive(IntoElement)]
 pub(crate) struct WorkbenchTitleBar {
-    pub project: SharedString,
     pub left: Vec<AnyView>,
     pub right: Vec<AnyView>,
 }
 
 impl RenderOnce for WorkbenchTitleBar {
     fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
-        let slot = project_color_index(&self.project);
-        let avatar: Hsla = token(cx, &format!("project-color-{slot}"));
         // `--h-titlebar`.
         TitleBar::new().h(px(40.)).bg(token(cx, "bg-frame")).border_color(token(cx, "bg-frame")).child(
             h_flex()
                 .flex_1()
                 .h_full()
-                .gap(px(12.))
-                .pl(px(8.))
+                .gap(px(10.))
+                .pl(px(6.))
+                .pr(px(4.))
                 .text_size(px(13.))
                 .text_color(token(cx, "fg"))
-                .child(
-                    h_flex()
-                        .gap(px(6.))
-                        .child(
-                            div()
-                                .size(px(20.))
-                                .rounded(px(4.))
-                                .bg(avatar)
-                                .flex()
-                                .items_center()
-                                .justify_center()
-                                .text_size(px(12.))
-                                .text_color(token(cx, "fg-on-accent"))
-                                .child(project_initials(&self.project)),
-                        )
-                        .child(self.project.clone()),
-                )
                 .children(self.left)
                 .child(div().flex_1())
                 .children(self.right),
         )
+    }
+}
+
+/// The project widget: the avatar (colour slot, initials) and the name.
+struct ProjectWidget(SharedString);
+
+impl Render for ProjectWidget {
+    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let avatar = token(cx, &format!("project-color-{}", project_color_index(&self.0)));
+        h_flex()
+            .gap(px(6.))
+            .child(
+                div()
+                    .size(px(20.))
+                    .rounded(px(4.))
+                    .bg(avatar)
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .text_size(px(12.))
+                    .text_color(token(cx, "fg-on-accent"))
+                    .child(project_initials(&self.0)),
+            )
+            .child(self.0.clone())
+    }
+}
+
+/// A title bar icon button running the action `id` (React's search and settings buttons).
+struct ActionButton {
+    id: &'static str,
+    icon: &'static str,
+    tooltip: &'static str,
+}
+
+impl Render for ActionButton {
+    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let id = self.id;
+        Button::new(SharedString::from(format!("title-{id}")))
+            .ghost()
+            .small()
+            .tooltip(self.tooltip)
+            .child(Icon::new(self.icon).size(px(16.)).color(token(cx, "fg-icon")))
+            .on_click(move |_, window, cx| window.dispatch_action(Box::new(RunAction { id: id.into() }), cx))
+    }
+}
+
+/// The title bar's own items, contributed like any plugin's: the project widget on the
+/// left (a plugin's main menu goes before it), search and settings on the right.
+pub(crate) fn contribute(ext: &mut Extensions) {
+    ext.add_title_item(TitleItem {
+        id: "project",
+        align: StatusAlign::Left,
+        priority: 100,
+        build: Rc::new(|services, _, cx| {
+            let name: SharedString = services.backend.read(cx).project().name.clone().into();
+            cx.new(|_| ProjectWidget(name)).into()
+        }),
+    });
+    for (id, action, icon, tooltip, priority) in [
+        ("search", "navigate.searchEverywhere", "search", "Search Everywhere", 90),
+        ("settings", "file.settings", "settings", "Settings", 100),
+    ] {
+        ext.add_title_item(TitleItem {
+            id,
+            align: StatusAlign::Right,
+            priority,
+            build: Rc::new(move |_, _, cx| cx.new(|_| ActionButton { id: action, icon, tooltip }).into()),
+        });
     }
 }
 

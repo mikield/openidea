@@ -195,10 +195,21 @@ impl Extensions {
         out
     }
 
-    /// Settings pages by group, then order, then title.
+    /// Settings pages as the dialog lists them: groups (an ungrouped page is its own group)
+    /// by their lowest order, pages of a group together, each by order then title.
     pub fn settings_pages(&self) -> Vec<&SettingsPage> {
+        let group_order = |page: &SettingsPage| {
+            self.settings_pages
+                .iter()
+                .filter(|p| p.group.is_some() && p.group == page.group)
+                .map(|p| p.order)
+                .min()
+                .unwrap_or(page.order)
+        };
         let mut out: Vec<_> = self.settings_pages.iter().collect();
-        out.sort_by(|a, b| (&a.group, a.order, &a.title).cmp(&(&b.group, b.order, &b.title)));
+        out.sort_by(|a, b| {
+            (group_order(a), &a.group, a.order, &a.title).cmp(&(group_order(b), &b.group, b.order, &b.title))
+        });
         out
     }
 
@@ -246,6 +257,8 @@ pub(crate) fn activate(plugins: &[Box<dyn Plugin>], cx: &mut App) {
     let mut ext = if cx.has_global::<Extensions>() { cx.remove_global::<Extensions>() } else { Extensions::default() };
     crate::workbench::contribute(&mut ext);
     crate::status::contribute(&mut ext);
+    crate::titlebar::contribute(&mut ext);
+    crate::settings_dialog::contribute(&mut ext);
     for plugin in plugins {
         plugin.activate(&mut ext, cx);
         ext.plugins.push(plugin.id());
@@ -305,6 +318,26 @@ mod tests {
         let right: Vec<_> = ext.status_items(StatusAlign::Right).iter().map(|s| s.id).collect();
         assert_eq!(right, ["position", "encoding"]);
         assert_eq!(ext.status_items(StatusAlign::Left).len(), 1);
+    }
+
+    #[test]
+    fn settings_pages_keep_groups_together_in_order() {
+        let page = |id: &'static str, group: Option<&str>, order: i32| SettingsPage {
+            id,
+            title: id.into(),
+            group: group.map(|g| g.to_owned().into()),
+            order,
+            keywords: vec![],
+            project_scope: false,
+            build: view(),
+        };
+        let mut ext = Extensions::default();
+        ext.add_settings_page(page("keymap", None, 10))
+            .add_settings_page(page("appearance", Some("Appearance & Behavior"), 0))
+            .add_settings_page(page("system", Some("Appearance & Behavior"), 20))
+            .add_settings_page(page("editor", Some("Editor"), 30));
+        let ids: Vec<_> = ext.settings_pages().iter().map(|p| p.id).collect();
+        assert_eq!(ids, ["appearance", "system", "keymap", "editor"]);
     }
 
     #[test]

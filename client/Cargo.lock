@@ -1219,6 +1219,7 @@ dependencies = [
  "gpui-pre-platform",
  "ide-core",
  "plugin-editor",
+ "plugin-menu",
  "plugin-presets",
  "plugin-problems",
  "plugin-project-tree",
@@ -7501,11 +7502,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "plugin-menu"
+version = "0.0.1"
+dependencies = [
+ "client-core",
+ "gpui-component",
+ "gpui-pre",
+]
+
+[[package]]
 name = "plugin-presets"
 version = "0.0.1"
 dependencies = [
  "client-core",
+ "gpui-component",
  "gpui-pre",
+ "ide-core",
  "serde",
  "serde_json",
  "tracing",

@@ -60,6 +60,7 @@ fn main() -> anyhow::Result<()> {
             Box::new(plugin_vcs::VcsPlugin),
             Box::new(plugin_terminal::TerminalPlugin),
             Box::new(plugin_search::SearchPlugin),
+            Box::new(plugin_menu::MenuPlugin),
         ];
         client_core::activate(&plugins, cx);
 

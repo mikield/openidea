@@ -24,6 +24,7 @@ pub mod keymap;
 pub mod layout;
 mod plugin;
 mod settings;
+mod settings_dialog;
 pub(crate) mod skin;
 mod status;
 pub mod theme;

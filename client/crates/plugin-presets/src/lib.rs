@@ -6,9 +6,13 @@
 //! `node client/scripts/export-presets.ts`; never edit it by hand. Each file
 //! records the upstream revision it was exported from (`from`).
 
-use client_core::{Extensions, KeymapPreset, Plugin, ThemeDef};
-use gpui::App;
+mod pages;
+
+use client_core::{Extensions, KeymapPreset, Plugin, SettingsPage, ThemeDef};
+use gpui::{App, AppContext, SharedString};
+use pages::{Choice, ChoicePage, current_keymap, current_theme};
 use serde::de::DeserializeOwned;
+use std::rc::Rc;
 
 macro_rules! data {
     ($($path:literal),* $(,)?) => {
@@ -59,12 +63,53 @@ impl Plugin for Presets {
     }
 
     fn activate(&self, ext: &mut Extensions, _: &mut App) {
-        for preset in keymaps() {
+        let (keymaps, themes) = (keymaps(), themes());
+        let theme_options: Vec<(SharedString, SharedString)> =
+            themes.iter().map(|t| (t.id.clone(), t.name.clone())).collect();
+        let keymap_options: Vec<(SharedString, SharedString)> =
+            keymaps.iter().map(|k| (k.id.clone(), k.title.clone())).collect();
+        for preset in keymaps {
             ext.add_keymap(preset);
         }
-        for theme in themes() {
+        for theme in themes {
             ext.add_theme(theme);
         }
+        // React: Settings › Appearance & Behavior › Appearance, and Keymap.
+        ext.add_settings_page(SettingsPage {
+            id: "appearance",
+            title: "Appearance".into(),
+            group: Some("Appearance & Behavior".into()),
+            order: 0,
+            keywords: vec!["theme".into(), "dark".into(), "light".into()],
+            project_scope: false,
+            build: Rc::new(move |services, _, cx| {
+                let choice = Choice {
+                    key: "appearance.theme",
+                    label: "Theme",
+                    options: theme_options.clone(),
+                    current: current_theme,
+                };
+                let sync = (
+                    "appearance.syncWithOs",
+                    "Sync with OS",
+                    (|s: &ide_core::settings::Settings| s.appearance.sync_with_os) as fn(&_) -> bool,
+                );
+                cx.new(|cx| ChoicePage::new(services, choice, Some(sync), cx)).into()
+            }),
+        });
+        ext.add_settings_page(SettingsPage {
+            id: "keymap",
+            title: "Keymap".into(),
+            group: None,
+            order: 10,
+            keywords: vec!["shortcut".into(), "keyboard".into()],
+            project_scope: false,
+            build: Rc::new(move |services, _, cx| {
+                let choice =
+                    Choice { key: "keymap", label: "Keymap", options: keymap_options.clone(), current: current_keymap };
+                cx.new(|cx| ChoicePage::new(services, choice, None, cx)).into()
+            }),
+        });
     }
 }
 
