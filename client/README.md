@@ -14,7 +14,8 @@ Upstream crates are used read-only (`ide-core`, `ide-jsonrpc`, `ide-host`, …).
 client/
 ├─ crates/client-rpc   typed protocol client over a `Transport` (stdio), UTF-8 ↔ UTF-16 coordinates, e2e tests
 ├─ crates/oi-server    our backend binary: `Dispatcher::standard()` + `oi_*` commands
-└─ crates/client-app   `openidea-gpui`: project tree, editor, problems, status bar
+├─ crates/client-core  workbench core: plugins and extension points, actions, dock, settings
+└─ crates/client-app   `openidea-gpui`: the spike's view (tree, editor, problems) as a plugin
 ```
 
 ## Run

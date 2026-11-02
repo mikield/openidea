@@ -1,13 +1,14 @@
-//! The project window: project tree, one editor, problems, status bar.
+//! The spike's project view: project tree, one editor, problems, status line.
+//! Shown as the workbench's editor area until it dissolves into plugins.
 
 use crate::completion::ServerCompletions;
 use crate::doc_sync::DocSync;
-use client_rpc::proto::{DocumentInfo, FileEntry, ProjectInfo, ServerInfo};
+use client_core::Services;
+use client_rpc::proto::{DocumentInfo, FileEntry};
 use client_rpc::{Connection, text};
 use gpui::{
     AppContext, ClickEvent, Context, Entity, FontWeight, InteractiveElement, IntoElement, ParentElement, Render,
-    SharedString, StatefulInteractiveElement, Styled, Subscription, Window, actions, div, prelude::FluentBuilder, px,
-    relative,
+    SharedString, StatefulInteractiveElement, Styled, Subscription, Window, div, prelude::FluentBuilder, px, relative,
 };
 use gpui_component::highlighter::{Diagnostic as EditorDiagnostic, DiagnosticSeverity};
 use gpui_component::input::{Editor, EditorState, InputEvent, Position};
@@ -18,9 +19,6 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::Arc;
 use tokio::runtime::Handle;
-use tokio::sync::mpsc::UnboundedReceiver;
-
-actions!(openidea, [Save]);
 
 pub struct Workspace {
     conn: Arc<Connection>,
@@ -35,6 +33,7 @@ pub struct Workspace {
     /// `(path, producer)` → that producer's full set for the file.
     problems: BTreeMap<(PathBuf, String), Vec<Diagnostic>>,
     status: SharedString,
+    _events: Subscription,
 }
 
 struct Row {
@@ -52,36 +51,25 @@ struct OpenDoc {
 }
 
 impl Workspace {
-    pub fn new(
-        conn: Arc<Connection>,
-        rt: Handle,
-        server: ServerInfo,
-        project: ProjectInfo,
-        mut events: UnboundedReceiver<IdeEvent>,
-        cx: &mut Context<Self>,
-    ) -> Self {
-        // Backend events: tokio's mpsc is executor-agnostic, so GPUI awaits it directly.
-        cx.spawn(async move |this, cx| {
-            while let Some(event) = events.recv().await {
-                if this.update(cx, |ws, cx| ws.on_event(event, cx)).is_err() {
-                    break;
-                }
-            }
-        })
-        .detach();
+    pub fn new(services: &Services, cx: &mut Context<Self>) -> Self {
+        let events = cx.subscribe(&services.backend, |ws, _, event: &IdeEvent, cx| ws.on_event(event.clone(), cx));
+        let backend = services.backend.read(cx);
+        let (server, project) = (backend.server(), backend.project());
         let root = project.root.0.clone();
         let mut ws = Self {
-            conn,
-            rt,
+            conn: backend.connection().clone(),
+            rt: backend.runtime().clone(),
             root: root.clone(),
-            project: project.name.into(),
-            server: format!("oi-server {} ({}/{})", server.version, server.os, server.arch).into(),
+            project: project.name.clone().into(),
+            // `initialize` reports the upstream backend version, not `oi-server`'s own.
+            server: format!("backend {} ({}/{})", server.version, server.os, server.arch).into(),
             children: HashMap::new(),
             expanded: HashSet::from([root.clone()]),
             rows: Vec::new(),
             open: None,
             problems: BTreeMap::new(),
             status: "Ready".into(),
+            _events: events,
         };
         ws.load_dir(root, cx);
         ws
@@ -185,7 +173,8 @@ impl Workspace {
         cx.notify();
     }
 
-    fn save(&mut self, _: &Save, _window: &mut Window, cx: &mut Context<Self>) {
+    /// Saves the open document (the `file.save` action).
+    pub fn save(&mut self, cx: &mut Context<Self>) {
         let Some(open) = &self.open else { return };
         let fut = open.sync.save();
         cx.spawn(async move |this, cx| {
@@ -420,7 +409,6 @@ impl Render for Workspace {
             .bg(theme.background)
             .text_color(theme.foreground)
             .key_context("Workspace")
-            .on_action(cx.listener(Self::save))
             .child(
                 h_flex().flex_1().min_h_0().child(sidebar).child(
                     v_flex()

@@ -71,9 +71,23 @@ is GPL: never copy from it.
    React keeps tool-window layout in `localStorage`, so layout stays client-side, and settings
    use the standard `settings_get` / `settings_set`. `main.rs` mirrors upstream's
    `crates/ide-host/src/bin/server.rs`: re-check it after each upstream sync.
-3. `client-core`: extension registry (`ToolWindowFactory`, `EditorFeature`, `SettingsPage`,
-   `Theme`, …), action system, dock with tool windows and tabs, settings storage via
-   `settings_get` / `settings_set`.
+3. ~~`client-core`~~ — done, modelled on React's `contributions.ts` / `actions.ts`:
+   - `Plugin::activate(&mut Extensions)` registers by id: `ToolWindow` (anchor left/right/bottom,
+     order), `StatusItem`, `SettingsPage`, the editor area, actions and key bindings. Plugins
+     hand in plain views (`ViewBuilder`); the core wraps them as dock panels.
+   - Actions: dotted string ids; every binding dispatches one GPUI action `RunAction { id }`,
+     so keymaps (step 4) are plain data. An action runs inside the `Workbench` update.
+   - Dock: gpui-component's `DockArea` (`DockSkin`): tabs per dock, drag between docks,
+     `workbench.toggle{Left,Right,Bottom}Dock`, `Workbench::toggle_tool_window`. The layout is
+     saved per project root on the client (`client_core::layout`, `$OPENIDEA_CLIENT_HOME`),
+     debounced; a tool window added since the last save joins its anchor's dock.
+   - `Backend` (connection + server events as a GPUI emitter) and `SettingsStore`
+     (`settings_get` / `settings_set`, re-read on `SettingsChanged`).
+   - The spike's `Workspace` is now the first plugin (`spike_plugin.rs`): editor area +
+     `file.save` on Ctrl/Cmd+S.
+   - Deferred on purpose: `EditorFeature` to wave 2 (it needs the editor it extends), themes to
+     step 4; the Settings dialog and a command palette consume `SettingsPage` / actions later.
+     One window per process for now: panel builders are a GPUI global.
 4. Keymaps and themes as data: convert `src/platform/keymaps/*.ts` (action id → shortcuts) and
    `src/styles/tokens.css` / `scripts/theme/` into JSON with a script; map tokens onto
    gpui-component `ThemeColor` and the highlight theme. Themes become a contribution plugin.
@@ -96,6 +110,9 @@ is GPL: never copy from it.
 - **Trust gate:** every `invoke`, ours included, goes through upstream's `authorize_command`:
   outside its prefix allowlist (`fs_`, `doc_`, `settings_`, … in `ide-host/src/trust.rs`) a
   command needs a trusted project open in the window, so `oi_*` commands do too.
+- **GPUI tests:** `#[gpui::test]` with `TestAppContext::add_window_view` works headless on every
+  OS (`gpui` dev-dependency with `test-support`). Anything awaiting the tokio-side connection
+  needs `cx.executor().allow_parking()`, else the test scheduler reports non-determinism.
 - **Windows paths:** `std::fs::canonicalize` returns `\\?\C:\…`, the server reports `C:/…`;
   strip the verbatim prefix before comparing (or use `dunce`).
 - **Backend:** language servers start only for trusted projects (`project_trust_set`).
