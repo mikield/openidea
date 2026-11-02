@@ -1,0 +1,22 @@
+[package]
+name = "plugin-editor"
+description = "The editor area: one document synced with the backend, completion, diagnostics, save"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+client-core.workspace = true
+client-rpc.workspace = true
+ide-core.workspace = true
+gpui.workspace = true
+gpui-component.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+anyhow.workspace = true
+lsp-types = { version = "0.97", features = ["proposed"] }
+
+[dev-dependencies]
+serde_json.workspace = true

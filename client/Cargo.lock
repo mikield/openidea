@@ -1194,9 +1194,10 @@ dependencies = [
  "gpui-pre",
  "gpui-pre-platform",
  "ide-core",
- "lsp-types",
+ "plugin-editor",
  "plugin-presets",
- "serde_json",
+ "plugin-problems",
+ "plugin-project-tree",
  "tokio",
  "tracing",
  "tracing-subscriber",
@@ -7428,6 +7429,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b4596b6d070b27117e987119b4dac604f3c58cfb0b191112e24771b2faeac1a6"
 
 [[package]]
+name = "plugin-editor"
+version = "0.0.1"
+dependencies = [
+ "anyhow",
+ "client-core",
+ "client-rpc",
+ "gpui-component",
+ "gpui-pre",
+ "ide-core",
+ "lsp-types",
+ "serde_json",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "plugin-presets"
 version = "0.0.1"
 dependencies = [
@@ -7436,6 +7453,29 @@ dependencies = [
  "serde",
  "serde_json",
  "tracing",
+]
+
+[[package]]
+name = "plugin-problems"
+version = "0.0.1"
+dependencies = [
+ "client-core",
+ "gpui-component",
+ "gpui-pre",
+ "ide-core",
+ "serde_json",
+]
+
+[[package]]
+name = "plugin-project-tree"
+version = "0.0.1"
+dependencies = [
+ "client-core",
+ "client-rpc",
+ "gpui-component",
+ "gpui-pre",
+ "ide-core",
+ "serde_json",
 ]
 
 [[package]]

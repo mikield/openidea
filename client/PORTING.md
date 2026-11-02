@@ -106,8 +106,16 @@ is GPL: never copy from it.
      highlight style (tables `COLORS` / `EDITOR` / `SYNTAX`).
    - Not yet: the Settings UI to switch them, plugin themes (`data-plugin-theme`), editor
      schemes beyond the theme's own syntax tokens.
-5. Move the spike's project tree into the first plugin; the spike's `workspace.rs` dissolves
-   into core + plugins.
+5. ~~Project tree into the first plugin~~ — done: the spike's `workspace.rs` is gone.
+   - Plugins (each its own crate, on `client-core` only, unaware of each other):
+     `plugin-editor` (editor area, doc sync, completion, `file.save`), `plugin-project-tree`
+     (`project` tool window, left), `plugin-problems` (`problems` tool window, bottom),
+     `plugin-presets`. `client-app` is `main.rs` and the plugin list.
+   - New shared services in `Services`: `Editors` (React `EditorService`: open a file, which
+     one is active) and `DiagnosticsStore` (each producer's set per file). The backend and
+     task status bar items are the core's own `StatusItem`s.
+   - The wave 1 gate's "3 plugins built only on extension points" holds (editor, project
+     tree, problems); a saved layout without them gets them added to their docks.
 6. `client.yml` CI green on macOS, Windows and Linux.
 
 ## Gotchas found in the spike
@@ -166,7 +174,8 @@ Headless check (Linux, agents and CI): `client/scripts/headless-shot.sh PROJECT 
 
 | Feature | Plugin crate | Ported from upstream rev | Status |
 | --- | --- | --- | --- |
-| project-tree | — | 4015a5b (spike only) | spike |
-| editor (basic) | — | 4015a5b (spike only) | spike |
+| project-tree | plugin-project-tree | 4015a5b (spike behaviour, not yet `src/features/project`) | basic |
+| problems | plugin-problems | 4015a5b (spike behaviour) | basic |
+| editor (basic) | plugin-editor | 4015a5b (spike behaviour) | basic, one document |
 | keymaps (6 presets) | plugin-presets | 87bf89d (`src/platform/keymaps`) | data, re-export with the script |
 | themes (7 built-in) | plugin-presets | 2c9a647 (`tokens.css`, `themes.ts`) | data, re-export with the script |

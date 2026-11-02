@@ -1,0 +1,17 @@
+[package]
+name = "plugin-problems"
+description = "The Problems tool window: the backend's diagnostics for every file"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+client-core.workspace = true
+ide-core.workspace = true
+gpui.workspace = true
+gpui-component.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true

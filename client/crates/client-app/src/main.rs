@@ -3,16 +3,11 @@
 //! Phase-0 spike: a GPUI client of `oi-server` (upstream's backend plus our
 //! commands). Even locally the client spawns the server and speaks the remote
 //! protocol, so the same code path serves SSH sessions later. The window is a
-//! `client-core` workbench; everything in it comes from plugins.
-
-mod completion;
-mod doc_sync;
-mod spike_plugin;
-mod workspace;
+//! `client-core` workbench; everything in it comes from the plugins listed here.
 
 use anyhow::Context as _;
 use client_core::layout::LayoutStore;
-use client_core::{Backend, Plugin, Services, SettingsStore, Workbench};
+use client_core::{Backend, Plugin, Services, Workbench};
 use client_rpc::{Connection, Stdio, Transport as _};
 use gpui::{AppContext, Bounds, TitlebarOptions, WindowBounds, WindowOptions, px, size};
 use gpui_component::Root;
@@ -55,13 +50,17 @@ fn main() -> anyhow::Result<()> {
     gpui_platform::application().with_assets(gpui_kit_assets::Assets).run(move |cx| {
         gpui_component::init(cx);
         // Keymap and theme follow the settings once the workbench opens.
-        let plugins: Vec<Box<dyn Plugin>> =
-            vec![Box::new(plugin_presets::Presets), Box::new(spike_plugin::SpikeWorkspace::new(open))];
+        let plugins: Vec<Box<dyn Plugin>> = vec![
+            Box::new(plugin_presets::Presets),
+            Box::new(plugin_editor::EditorPlugin::default()),
+            Box::new(plugin_project_tree::ProjectTreePlugin),
+            Box::new(plugin_problems::ProblemsPlugin),
+        ];
         client_core::activate(&plugins, cx);
 
         let backend = cx.new(|cx| Backend::new(conn, handle, info, project, events, cx));
-        let settings = cx.new(|cx| SettingsStore::new(backend.clone(), Default::default(), cx));
-        let services = Services { backend, settings };
+        let services = Services::new(backend, cx);
+        let editors = services.editors.clone();
         let bounds = Bounds::centered(None, size(px(1280.), px(800.)), cx);
         let options = WindowOptions {
             window_bounds: Some(WindowBounds::Windowed(bounds)),
@@ -74,6 +73,9 @@ fn main() -> anyhow::Result<()> {
             cx.new(|cx| Root::new(workbench, window, cx))
         })
         .expect("open window");
+        if let Some(file) = open {
+            editors.update(cx, |editors, cx| editors.open(file, cx));
+        }
         cx.activate(true);
     });
     rt.shutdown_timeout(std::time::Duration::from_secs(5));

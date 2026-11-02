@@ -15,8 +15,8 @@ client/
 ├─ crates/client-rpc   typed protocol client over a `Transport` (stdio), UTF-8 ↔ UTF-16 coordinates, e2e tests
 ├─ crates/oi-server    our backend binary: `Dispatcher::standard()` + `oi_*` commands
 ├─ crates/client-core  workbench core: plugins and extension points, actions, dock, settings, keymap, theme
-├─ crates/plugin-presets built-in keymaps and themes (data exported by `scripts/export-presets.ts`)
-└─ crates/client-app   `openidea-gpui`: the spike's view (tree, editor, problems) as a plugin
+├─ crates/plugin-*     features as plugins: editor, project-tree, problems, presets (keymaps, themes)
+└─ crates/client-app   `openidea-gpui`: `main.rs` and the list of plugins
 ```
 
 ## Run
@@ -37,7 +37,9 @@ backend's config and caches. Plan, decisions and next steps: [`PORTING.md`](PORT
 - project tree (lazy `fs_read_dir`, refreshed on `FsChanged`)
 - open / edit / save documents (`doc_open`, `doc_edit`, `doc_save`); edits are
   diffed against the last synced text and sent in UTF-16 offsets
-- diagnostics from the server's language servers (problems panel, editor hover)
+- diagnostics from the server's language servers (Problems tool window, editor hover)
+- a dock: Project (left), Problems (bottom), the editor in the center; Alt+1 / Alt+6 and the
+  rest of the chosen keymap; the layout persists per project
 - completion through `lsp_completion`, filtered and ranked client-side
 - one ordered queue per document: completion never runs against text the
   server has not seen, save never overtakes an edit

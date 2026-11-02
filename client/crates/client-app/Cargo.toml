@@ -11,10 +11,12 @@ name = "openidea-gpui"
 path = "src/main.rs"
 
 [dependencies]
-serde_json = "1"
 client-rpc.workspace = true
 client-core.workspace = true
 plugin-presets.workspace = true
+plugin-editor.workspace = true
+plugin-project-tree.workspace = true
+plugin-problems.workspace = true
 ide-core.workspace = true
 tokio.workspace = true
 anyhow.workspace = true
@@ -24,4 +26,3 @@ gpui.workspace = true
 gpui_platform.workspace = true
 gpui-component.workspace = true
 gpui-kit-assets.workspace = true
-lsp-types = { version = "0.97", features = ["proposed"] }

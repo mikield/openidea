@@ -8,8 +8,8 @@
 use crate::actions::ActionDef;
 use crate::keymap::KeymapPreset;
 use crate::theme::ThemeDef;
-use crate::{Backend, SettingsStore};
-use gpui::{AnyView, App, Entity, Global, SharedString, Window};
+use crate::{Backend, DiagnosticsStore, Editors, SettingsStore};
+use gpui::{AnyView, App, AppContext, Entity, Global, SharedString, Window};
 use std::rc::Rc;
 
 /// A feature: a UI crate that contributes to [`Extensions`].
@@ -20,11 +20,22 @@ pub trait Plugin: 'static {
     fn activate(&self, ext: &mut Extensions, cx: &mut App);
 }
 
-/// What a contributed view gets: the window's backend and settings.
+/// What a contributed view gets: the window's backend and the services plugins share.
 #[derive(Clone)]
 pub struct Services {
     pub backend: Entity<Backend>,
     pub settings: Entity<SettingsStore>,
+    pub editors: Entity<Editors>,
+    pub diagnostics: Entity<DiagnosticsStore>,
+}
+
+impl Services {
+    pub fn new(backend: Entity<Backend>, cx: &mut App) -> Self {
+        let settings = cx.new(|cx| SettingsStore::new(backend.clone(), Default::default(), cx));
+        let diagnostics = cx.new(|cx| DiagnosticsStore::new(&backend, cx));
+        let editors = cx.new(|_| Editors::default());
+        Self { backend, settings, editors, diagnostics }
+    }
 }
 
 /// Builds a contributed view for one window.
@@ -206,6 +217,7 @@ impl Extensions {
 pub(crate) fn activate(plugins: &[Box<dyn Plugin>], cx: &mut App) {
     let mut ext = if cx.has_global::<Extensions>() { cx.remove_global::<Extensions>() } else { Extensions::default() };
     crate::workbench::contribute(&mut ext);
+    crate::status::contribute(&mut ext);
     for plugin in plugins {
         plugin.activate(&mut ext, cx);
         ext.plugins.push(plugin.id());

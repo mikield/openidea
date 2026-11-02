@@ -2,7 +2,7 @@
 //! windows, and a saved layout restored with a tool window added since.
 
 use crate::layout::LayoutStore;
-use crate::{Anchor, Backend, Extensions, Plugin, Services, SettingsStore, ToolWindow, ViewBuilder, Workbench};
+use crate::{Anchor, Backend, Extensions, Plugin, Services, ToolWindow, ViewBuilder, Workbench};
 use client_rpc::proto::{ProjectInfo, ServerInfo};
 use client_rpc::{Connection, Transport};
 use gpui::{
@@ -88,8 +88,7 @@ fn services(rt: &tokio::runtime::Runtime, cx: &mut TestAppContext) -> Services {
         serde_json::from_value(json!({ "trusted": true, "root": "/work/a", "name": "a", "isGit": false })).unwrap();
     cx.update(|cx| {
         let backend = cx.new(|cx| Backend::new(conn, rt.handle().clone(), server, project, events, cx));
-        let settings = cx.new(|cx| SettingsStore::new(backend.clone(), Default::default(), cx));
-        Services { backend, settings }
+        Services::new(backend, cx)
     })
 }
 

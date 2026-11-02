@@ -10,15 +10,19 @@
 //!   editor area, and a status bar. The layout persists per project.
 //! - [`KeymapPreset`] / [`ThemeDef`]: keymaps and themes are contributed as data;
 //!   the settings pick one of each.
-//! - [`Backend`] / [`SettingsStore`]: the window's server connection and its
-//!   settings (`settings_get` / `settings_set`).
+//! - [`Services`]: what plugins share — the window's [`Backend`], its [`SettingsStore`]
+//!   (`settings_get` / `settings_set`), [`Editors`] (open a file, which one is active) and
+//!   [`DiagnosticsStore`] (problems per file).
 
 mod actions;
 mod backend;
+pub mod diagnostics;
+pub mod editors;
 pub mod keymap;
 pub mod layout;
 mod plugin;
 mod settings;
+mod status;
 pub mod theme;
 mod tool_window;
 mod workbench;
@@ -27,6 +31,8 @@ mod workbench_tests;
 
 pub use actions::{ActionDef, ActionRun, RunAction};
 pub use backend::Backend;
+pub use diagnostics::{DiagnosticsChanged, DiagnosticsStore};
+pub use editors::{EditorEvent, Editors};
 pub use keymap::KeymapPreset;
 pub use plugin::{
     Anchor, Extensions, Plugin, Services, SettingsPage, StatusAlign, StatusItem, ToolWindow, ViewBuilder,
