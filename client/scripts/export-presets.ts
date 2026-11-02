@@ -284,7 +284,16 @@ for (const [path, data] of Object.entries(files)) {
   } catch {}
   if (current === text) continue;
   if (check) {
-    stale.push(path);
+    // A shallow clone (CI) cannot name the revision: compare the data without it.
+    const withoutFrom = (json: string) => {
+      try {
+        const { from: _, ...rest } = JSON.parse(json);
+        return JSON.stringify(rest);
+      } catch {
+        return json;
+      }
+    };
+    if (withoutFrom(current) !== withoutFrom(text)) stale.push(path);
   } else {
     mkdirSync(dirname(file), { recursive: true });
     writeFileSync(file, text);
