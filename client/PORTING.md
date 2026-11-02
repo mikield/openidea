@@ -179,6 +179,27 @@ is GPL: never copy from it.
      (gitflic.ru/project/openide/openide, an IntelliJ Community fork, Apache-2.0); the React
      code stays the spec.
 
+## Wave 2: editor + code insight, progress
+
+1. Done — navigation and backend edits (`plugin-editor`, React `src/editor/lsp/actions.ts`):
+   - Go to declaration: Ctrl+B (`navigate.declaration`) and Ctrl+click through the
+     gpui-component editor's `DefinitionProvider` over `lsp_goto`; hover through
+     `HoverProvider` over `lsp_hover`. Targets come back through the editor's `show_document`
+     hook and open via `Editors::open_at(path, Pos)` — this file or another, caret on the target.
+     Search Everywhere's symbols open at their line the same way.
+   - `DocSync` answers "where is byte N" after syncing (`position`), so requests run on the
+     text on screen, and adopts `DocPatched` (`patched`) before the editor applies the same
+     changes (`replace_text_in_range`, UTF-16 offsets, last first) — the editor's resulting
+     change sends nothing back. A crossed edit (our edit on an older version) is still
+     reported, not rebased.
+   - Caret `line:column` in the status bar (`caret` status item).
+   - A backend test (real `oi-server` + rust-analyzer) checks the merge against the server's
+     saved text and the shapes of `lsp_goto` / `lsp_hover`.
+2. Next: Find Usages (`lsp_references`), rename (`lsp_prepare_rename` / `lsp_rename` +
+   `apply_workspace_edit`), Reformat (`lsp_format` → edits), Find in Files (Search
+   Everywhere's Text tab, `search_start`), Structure, inlay hints, the editor gate
+   measurements (typing latency, 100k lines, IME).
+
 ## Gotchas found in the spike
 
 - **Coordinates:** the protocol counts UTF-16 units; the gpui-component editor's `Position`
@@ -202,6 +223,13 @@ is GPL: never copy from it.
 - **gpui-component highlight keys:** built with `syntect` (no `tree-sitter`), it compiles
   `highlighter/wasm_stub.rs`, where the editor colours are `editor_background`…; with
   `tree-sitter` they are `editor.background`…. `theme_config` writes both spellings.
+- **Finding commands:** some registrations span lines (`d.add(` then the name on the next
+  line); ask a running server (`commands`) instead of grepping `add("…"`. `lsp_goto` and
+  `lsp_inlay_hints` are standard.
+- **Paths into `doc_open`:** a Windows verbatim path (`\\?\C:\…`) is accepted, but the language
+  server then gets `file:////%3F/C:/…` and rejects every request (“url is not a file”). Paths
+  the client gets from the server are plain; tests strip the prefix.
+- **rust-analyzer while analysing** answers `cancelled` (ContentModified): retry, do not fail.
 - **Settings file:** `oi-server` emits `SettingsChanged` only for `settings_set`; editing
   `config/settings.toml` by hand takes effect on the next start.
 - **Windows paths:** `std::fs::canonicalize` returns `\\?\C:\…`, the server reports `C:/…`;
@@ -239,7 +267,7 @@ Headless check (Linux, agents and CI): `client/scripts/headless-shot.sh PROJECT 
 | --- | --- | --- | --- |
 | project-tree | plugin-project-tree | 4015a5b (spike behaviour, not yet `src/features/project`) | basic |
 | problems | plugin-problems | 4015a5b (spike behaviour) | basic |
-| editor (basic) | plugin-editor | 4015a5b (spike behaviour) | tabs, no splits |
+| editor | plugin-editor | 4015a5b (spike; go to / hover from `src/editor/lsp`) | tabs, go to, hover, DocPatched |
 | terminal | plugin-terminal | 4015a5b (`src/features/terminal`, behaviour) | basic: no selection, no settings |
 | keymaps (6 presets) | plugin-presets | 87bf89d (`src/platform/keymaps`) | data, re-export with the script |
 | themes (7 built-in) | plugin-presets | 2c9a647 (`tokens.css`, `themes.ts`) | data, re-export with the script |

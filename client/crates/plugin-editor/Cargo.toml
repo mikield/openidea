@@ -17,4 +17,9 @@ tokio.workspace = true
 tracing.workspace = true
 anyhow.workspace = true
 lsp-types = { version = "0.97", features = ["proposed"] }
+serde.workspace = true
 serde_json.workspace = true
+
+[dev-dependencies]
+client-rpc.workspace = true
+tempfile.workspace = true

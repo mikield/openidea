@@ -7496,7 +7496,9 @@ dependencies = [
  "gpui-pre",
  "ide-core",
  "lsp-types",
+ "serde",
  "serde_json",
+ "tempfile",
  "tokio",
  "tracing",
 ]

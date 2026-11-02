@@ -40,10 +40,10 @@ async fn find_files_and_symbols_answer_in_the_popup_shapes() {
     let _ = conn.invoke::<Value>("recent_files", json!({})).await.expect("recent_files");
 }
 
-/// The server reports paths without Windows' `\?\` prefix.
+/// The server reports paths without Windows' `\\?\` prefix.
 fn dunce(p: &std::path::Path) -> std::path::PathBuf {
     let path = std::fs::canonicalize(p).unwrap();
-    match path.to_str().and_then(|s| s.strip_prefix(r"\?\")) {
+    match path.to_str().and_then(|s| s.strip_prefix(r"\\?\")) {
         Some(plain) => plain.into(),
         None => path,
     }

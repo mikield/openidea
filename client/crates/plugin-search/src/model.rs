@@ -80,6 +80,8 @@ pub struct SymbolMatch {
     pub container: Option<String>,
     pub path: PathBuf,
     pub rel_path: String,
+    /// Where the symbol is; Enter puts the caret at its start.
+    pub range: ide_core::Range,
 }
 
 #[derive(Clone, Debug, PartialEq)]

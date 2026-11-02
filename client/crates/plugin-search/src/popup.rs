@@ -164,10 +164,12 @@ impl SearchEverywhere {
         cx.emit(DismissEvent);
         match row {
             Row::Header(_) => {}
-            Row::File(FileMatch { path, .. }) | Row::Symbol(SymbolMatch { path, .. }) => {
-                let conn = self.services.backend.read(cx).connection().clone();
-                drop(conn.invoke::<serde_json::Value>("mark_recent", json!({ "path": path })));
+            Row::File(FileMatch { path, .. }) => {
                 self.services.editors.update(cx, |editors, cx| editors.open(path, cx));
+            }
+            // A symbol opens with the caret on it.
+            Row::Symbol(SymbolMatch { path, range, .. }) => {
+                self.services.editors.update(cx, |editors, cx| editors.open_at(path, Some(range.start), cx));
             }
             Row::Action(action) => {
                 let workbench = self.workbench.clone();

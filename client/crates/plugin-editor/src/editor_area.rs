@@ -3,6 +3,7 @@
 
 use crate::completion::ServerCompletions;
 use crate::doc_sync::DocSync;
+use crate::navigation::{ServerNavigation, uri_to_path};
 use client_core::icons::file_icon_name;
 use client_core::keymap::shortcut_label;
 use client_core::theme::token;
@@ -11,13 +12,13 @@ use client_rpc::proto::DocumentInfo;
 use client_rpc::{Connection, text};
 use gpui::prelude::FluentBuilder as _;
 use gpui::{
-    App, AppContext, ClickEvent, Context, Entity, InteractiveElement, IntoElement, MouseButton, ParentElement, Render,
-    SharedString, StatefulInteractiveElement, Styled, Subscription, Window, div, px, relative,
+    App, AppContext, ClickEvent, Context, Entity, EntityInputHandler, InteractiveElement, IntoElement, MouseButton,
+    ParentElement, Render, SharedString, StatefulInteractiveElement, Styled, Subscription, Window, div, px, relative,
 };
 use gpui_component::highlighter::{Diagnostic as EditorDiagnostic, DiagnosticSeverity};
-use gpui_component::input::{Editor, EditorState, InputEvent, Position};
+use gpui_component::input::{Editor, EditorState, GoToDefinition, InputEvent, Position};
 use gpui_component::{h_flex, v_flex};
-use ide_core::{IdeEvent, Pos, Severity};
+use ide_core::{DocId, IdeEvent, Pos, Severity, TextChange};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::Arc;
@@ -33,7 +34,12 @@ pub struct EditorArea {
     /// What happened last (opening, saved, failed), shown beside the tabs.
     note: SharedString,
     _subscriptions: Vec<Subscription>,
+    /// Where the caret is, for the status bar (`line:column`, 1-based); `None` without a document.
+    on_caret: CaretSink,
 }
+
+/// Receives the caret position whenever it may have changed.
+pub type CaretSink = Rc<dyn Fn(Option<(u32, u32)>, &mut App)>;
 
 struct OpenDoc {
     path: PathBuf,
@@ -42,6 +48,8 @@ struct OpenDoc {
     dirty: bool,
     read_only: bool,
     _changes: Subscription,
+    /// Caret moves re-render the editor: report them to the status bar.
+    _caret: Subscription,
 }
 
 /// The tab to show after closing tab `closed` of `len` while `active` was shown:
@@ -61,23 +69,27 @@ fn cycle(active: usize, len: usize, delta: isize) -> usize {
 }
 
 impl EditorArea {
-    pub fn new(services: &Services, window: &mut Window, cx: &mut Context<Self>) -> Self {
+    pub fn new(services: &Services, on_caret: CaretSink, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let subscriptions = vec![
             cx.subscribe_in(&services.editors, window, |this, _, event: &EditorEvent, window, cx| {
-                if let EditorEvent::OpenRequested(path) = event {
-                    this.open_file(path.clone(), window, cx);
+                if let EditorEvent::OpenRequested { path, at } = event {
+                    this.open_file(path.clone(), *at, window, cx);
                 }
             }),
             cx.subscribe(&services.diagnostics, |this, _, event: &DiagnosticsChanged, cx| {
                 this.push_diagnostics(&event.path, cx)
             }),
-            cx.subscribe(&services.backend, |this, _, event: &IdeEvent, cx| {
-                if let IdeEvent::DocDirty { doc, dirty } = event
-                    && let Some(open) = this.docs.iter_mut().find(|o| o.sync.doc == *doc)
-                {
-                    open.dirty = *dirty;
-                    cx.notify();
+            cx.subscribe_in(&services.backend, window, |this, _, event: &IdeEvent, window, cx| match event {
+                IdeEvent::DocDirty { doc, dirty } => {
+                    if let Some(open) = this.docs.iter_mut().find(|o| o.sync.doc == *doc) {
+                        open.dirty = *dirty;
+                        cx.notify();
+                    }
                 }
+                IdeEvent::DocPatched { doc, base_version, version, changes } => {
+                    this.patched(*doc, *base_version, *version, changes, window, cx)
+                }
+                _ => {}
             }),
         ];
         let backend = services.backend.read(cx);
@@ -90,19 +102,25 @@ impl EditorArea {
             active: 0,
             note: SharedString::default(),
             _subscriptions: subscriptions,
+            on_caret,
         }
     }
 
-    pub fn open_file(&mut self, path: PathBuf, window: &mut Window, cx: &mut Context<Self>) {
+    /// Opens `path` (or shows its tab), with the caret at `at` (protocol coordinates) if given.
+    pub fn open_file(&mut self, path: PathBuf, at: Option<Pos>, window: &mut Window, cx: &mut Context<Self>) {
         if let Some(ix) = self.docs.iter().position(|o| o.path == path) {
-            return self.activate(ix, window, cx);
+            self.activate(ix, window, cx);
+            return self.place_caret(ix, at, window, cx);
         }
         let fut = self.conn.doc_open(&path);
         self.note = format!("Opening {}…", path.display()).into();
         cx.spawn_in(window, async move |this, cx| {
             let result = fut.await;
             let _ = this.update_in(cx, |area, window, cx| match result {
-                Ok(info) => area.show_doc(info, window, cx),
+                Ok(info) => {
+                    area.show_doc(info, window, cx);
+                    area.place_caret(area.active, at, window, cx);
+                }
                 Err(e) => {
                     area.note = format!("{}: {}", path.display(), e.message).into();
                     cx.notify();
@@ -126,8 +144,25 @@ impl EditorArea {
             let mut state = EditorState::new(window, cx).language(language);
             state.set_value(info.text.clone(), window, cx);
             state.set_readonly(read_only, cx);
-            state.lsp_mut().completion_provider = Some(Rc::new(ServerCompletions { sync: sync.clone() }));
+            let lsp = state.lsp_mut();
+            lsp.completion_provider = Some(Rc::new(ServerCompletions { sync: sync.clone() }));
+            let navigation = Rc::new(ServerNavigation { sync: sync.clone() });
+            lsp.definition_provider = Some(navigation.clone());
+            lsp.hover_provider = Some(navigation);
+            // Go-to targets, in this file or another, open through the editor service.
+            let editors = self.editors.clone();
+            lsp.show_document = Some(Rc::new(move |params, _, cx| {
+                let Some(path) = uri_to_path(&params.uri) else { return false };
+                let at = params.selection.map(|r| Pos::new(r.start.line, r.start.character));
+                editors.update(cx, |editors, cx| editors.open_at(path, at, cx));
+                true
+            }));
             state
+        });
+        let caret = cx.observe(&editor, |area, editor, cx| {
+            if area.docs.get(area.active).is_some_and(|o| o.editor == editor) {
+                area.report_caret(cx);
+            }
         });
         let doc = info.id;
         let changes = cx.subscribe_in(&editor, window, move |area, editor, event: &InputEvent, _window, cx| {
@@ -138,12 +173,68 @@ impl EditorArea {
         self.note = format!("{} · {}", info.language, if read_only { "read-only" } else { "editable" }).into();
         // New tabs open right of the current one, like IDEA.
         let at = if self.docs.is_empty() { 0 } else { self.active + 1 };
-        self.docs
-            .insert(at, OpenDoc { path: path.clone(), sync, editor, dirty: info.dirty, read_only, _changes: changes });
+        self.docs.insert(
+            at,
+            OpenDoc {
+                path: path.clone(),
+                sync,
+                editor,
+                dirty: info.dirty,
+                read_only,
+                _changes: changes,
+                _caret: caret,
+            },
+        );
         self.push_diagnostics(&path, cx);
         // Recent Files (React marks a file when an editor opens it).
         drop(self.conn.invoke::<serde_json::Value>("mark_recent", serde_json::json!({ "path": path })));
         self.activate(at, window, cx);
+    }
+
+    /// Tells the status bar where the active editor's caret is.
+    fn report_caret(&self, cx: &mut Context<Self>) {
+        let at = self.docs.get(self.active).map(|o| {
+            let p = o.editor.read(cx).cursor_position();
+            (p.line + 1, p.character + 1)
+        });
+        (self.on_caret)(at, cx);
+    }
+
+    /// Moves tab `ix`'s caret to `at` (UTF-16 columns, as the protocol counts).
+    fn place_caret(&mut self, ix: usize, at: Option<Pos>, window: &mut Window, cx: &mut Context<Self>) {
+        let (Some(open), Some(at)) = (self.docs.get(ix), at) else { return };
+        open.editor.update(cx, |state, cx| {
+            let text = state.value().to_string();
+            state.set_cursor_position(editor_pos(&text, at), window, cx);
+        });
+    }
+
+    /// `navigate.declaration`: the editor resolves the target and calls `show_document`.
+    pub fn go_to_declaration(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(open) = self.docs.get(self.active) else { return };
+        open.editor.update(cx, |state, cx| state.focus(window, cx));
+        window.dispatch_action(Box::new(GoToDefinition), cx);
+    }
+
+    /// The backend changed document `doc` (formatting, a refactoring): the sync adopts the
+    /// changes first, so the editor's resulting change sends nothing back.
+    fn patched(
+        &mut self,
+        doc: DocId,
+        base_version: u32,
+        version: u32,
+        changes: &[TextChange],
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(open) = self.docs.iter().find(|o| o.sync.doc == doc) else { return };
+        open.sync.patched(base_version, version, changes.to_vec());
+        open.editor.update(cx, |state, cx| {
+            // Offsets are UTF-16 in the original text: apply from the end backwards.
+            for change in changes.iter().rev() {
+                state.replace_text_in_range(Some(change.from as usize..change.to as usize), &change.insert, window, cx);
+            }
+        });
     }
 
     fn activate(&mut self, ix: usize, window: &mut Window, cx: &mut Context<Self>) {
@@ -152,6 +243,7 @@ impl EditorArea {
         open.editor.update(cx, |state, cx| state.focus(window, cx));
         let path = open.path.clone();
         self.editors.update(cx, |editors, cx| editors.set_active(Some(path), cx));
+        self.report_caret(cx);
         cx.notify();
     }
 
@@ -168,6 +260,7 @@ impl EditorArea {
                 self.active = 0;
                 self.note = SharedString::default();
                 self.editors.update(cx, |editors, cx| editors.set_active(None, cx));
+                (self.on_caret)(None, cx);
                 cx.notify();
             }
         }
